@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="local/aiconnect/db" VERSION="20260510" COMMENT="XMLDB schema for local_aiconnect (AI Connect WebMCP server)"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
+>
+  <TABLES>
+    <TABLE NAME="local_aiconnect_clients" COMMENT="Registered OAuth2 client applications (AI agents) that may request authorization">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="client_id" TYPE="char" LENGTH="100" NOTNULL="true" SEQUENCE="false" COMMENT="Stable client identifier used in OAuth flows"/>
+        <FIELD NAME="client_name" TYPE="char" LENGTH="200" NOTNULL="true" SEQUENCE="false" COMMENT="Human readable client name shown on consent screen"/>
+        <FIELD NAME="redirect_uris" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Newline separated list of allowed redirect URIs"/>
+        <FIELD NAME="scopes" TYPE="char" LENGTH="500" NOTNULL="false" DEFAULT="read write" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="client_id_idx" UNIQUE="true" FIELDS="client_id"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_aiconnect_codes" COMMENT="Short lived OAuth2 authorization codes issued during the consent step (PKCE)">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="code" TYPE="char" LENGTH="200" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="client_id" TYPE="char" LENGTH="100" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="scope" TYPE="char" LENGTH="500" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="code_challenge" TYPE="char" LENGTH="200" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="redirect_uri" TYPE="char" LENGTH="500" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="expiry" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="used" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="code_idx" UNIQUE="true" FIELDS="code"/>
+        <INDEX NAME="userid_idx" UNIQUE="false" FIELDS="userid"/>
+        <INDEX NAME="expiry_idx" UNIQUE="false" FIELDS="expiry"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_aiconnect_tokens" COMMENT="OAuth2 access and refresh tokens">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="token" TYPE="char" LENGTH="200" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="tokentype" TYPE="char" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="access | refresh"/>
+        <FIELD NAME="client_id" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="scope" TYPE="char" LENGTH="500" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="parenttoken" TYPE="char" LENGTH="200" NOTNULL="false" SEQUENCE="false" COMMENT="For refresh tokens — points to the issued access token"/>
+        <FIELD NAME="expiry" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="revoked" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="token_idx" UNIQUE="true" FIELDS="token"/>
+        <INDEX NAME="userid_idx" UNIQUE="false" FIELDS="userid"/>
+        <INDEX NAME="expiry_idx" UNIQUE="false" FIELDS="expiry"/>
+        <INDEX NAME="tokentype_revoked_idx" UNIQUE="false" FIELDS="tokentype, revoked"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_aiconnect_ratelimits" COMMENT="Per token rate limit counters bucketed by minute and hour windows">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="token" TYPE="char" LENGTH="200" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="windowtype" TYPE="char" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="minute | hour"/>
+        <FIELD NAME="windowstart" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="requestcount" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="1" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="token_window_idx" UNIQUE="true" FIELDS="token, windowtype"/>
+        <INDEX NAME="windowstart_idx" UNIQUE="false" FIELDS="windowstart"/>
+      </INDEXES>
+    </TABLE>
+  </TABLES>
+</XMLDB>

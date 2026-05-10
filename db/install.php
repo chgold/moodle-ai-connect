@@ -1,70 +1,59 @@
 <?php
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * Post-install hook for local_aiconnect.
+ *
+ * Schema is now defined declaratively in db/install.xml — this file only
+ * seeds the default set of registered AI agent clients (Claude, ChatGPT, etc.)
+ * so the OAuth authorize endpoint works out of the box.
+ *
+ * @package    local_aiconnect
+ * @copyright  2026 Goldt <https://github.com/chgold>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 defined('MOODLE_INTERNAL') || die();
 
-function xmldb_local_aiconnect_install() {
+/**
+ * Seed default OAuth2 clients (one per known AI agent).
+ *
+ * @return bool Always true.
+ */
+function xmldb_local_aiconnect_install(): bool {
     global $DB;
 
-    $dbman = $DB->get_manager();
-
-    $tables = [
-        'local_aiconnect_clients' => [
-            ['client_id', XMLDB_TYPE_CHAR, 100, null, XMLDB_NOTNULL, null, null],
-            ['client_name', XMLDB_TYPE_CHAR, 200, null, XMLDB_NOTNULL, null, null],
-            ['redirect_uris', XMLDB_TYPE_TEXT, null, null, null, null, null],
-            ['scopes', XMLDB_TYPE_CHAR, 500, null, null, null, 'read write'],
-            ['timecreated', XMLDB_TYPE_INTEGER, 10, null, XMLDB_NOTNULL, null, null],
-        ],
-        'local_aiconnect_codes' => [
-            ['code', XMLDB_TYPE_CHAR, 200, null, XMLDB_NOTNULL, null, null],
-            ['client_id', XMLDB_TYPE_CHAR, 100, null, XMLDB_NOTNULL, null, null],
-            ['userid', XMLDB_TYPE_INTEGER, 10, null, XMLDB_NOTNULL, null, null],
-            ['scope', XMLDB_TYPE_CHAR, 500, null, null, null, null],
-            ['code_challenge', XMLDB_TYPE_CHAR, 200, null, null, null, null],
-            ['redirect_uri', XMLDB_TYPE_CHAR, 500, null, null, null, null],
-            ['expiry', XMLDB_TYPE_INTEGER, 10, null, XMLDB_NOTNULL, null, null],
-            ['used', XMLDB_TYPE_INTEGER, 1, null, XMLDB_NOTNULL, null, 0],
-        ],
-        'local_aiconnect_tokens' => [
-            ['token', XMLDB_TYPE_CHAR, 200, null, XMLDB_NOTNULL, null, null],
-            ['tokentype', XMLDB_TYPE_CHAR, 10, null, XMLDB_NOTNULL, null, null],
-            ['client_id', XMLDB_TYPE_CHAR, 100, null, null, null, null],
-            ['userid', XMLDB_TYPE_INTEGER, 10, null, XMLDB_NOTNULL, null, null],
-            ['scope', XMLDB_TYPE_CHAR, 500, null, null, null, null],
-            ['parenttoken', XMLDB_TYPE_CHAR, 200, null, null, null, null],
-            ['expiry', XMLDB_TYPE_INTEGER, 10, null, XMLDB_NOTNULL, null, null],
-            ['revoked', XMLDB_TYPE_INTEGER, 1, null, XMLDB_NOTNULL, null, 0],
-            ['timecreated', XMLDB_TYPE_INTEGER, 10, null, XMLDB_NOTNULL, null, null],
-        ],
-        'local_aiconnect_ratelimits' => [
-            ['token', XMLDB_TYPE_CHAR, 200, null, XMLDB_NOTNULL, null, null],
-            ['windowtype', XMLDB_TYPE_CHAR, 10, null, XMLDB_NOTNULL, null, null],
-            ['windowstart', XMLDB_TYPE_INTEGER, 10, null, XMLDB_NOTNULL, null, null],
-            ['requestcount', XMLDB_TYPE_INTEGER, 10, null, XMLDB_NOTNULL, null, 1],
-        ],
+    $agents = [
+        'claude', 'chatgpt', 'gemini', 'grok', 'copilot',
+        'perplexity', 'metaai', 'deepseek', 'ai-agent-default',
     ];
 
-    foreach ($tables as $tablename => $fields) {
-        if ($dbman->table_exists($tablename)) {
+    $now = time();
+    foreach ($agents as $agent) {
+        if ($DB->record_exists('local_aiconnect_clients', ['client_id' => $agent])) {
             continue;
         }
-        $table = new xmldb_table($tablename);
-        $table->add_field('id', XMLDB_TYPE_INTEGER, 10, null, XMLDB_NOTNULL, XMLDB_SEQUENCE);
-        foreach ($fields as $f) {
-            $table->add_field($f[0], $f[1], $f[2] ?? null, null, $f[4] ?? null, null, $f[6] ?? null);
-        }
-        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
-        $dbman->create_table($table);
+        $DB->insert_record('local_aiconnect_clients', (object) [
+            'client_id'     => $agent,
+            'client_name'   => $agent,
+            'redirect_uris' => 'urn:ietf:wg:oauth:2.0:oob',
+            'scopes'        => 'read write delete',
+            'timecreated'   => $now,
+        ]);
     }
 
-    $agents = ['claude','chatgpt','gemini','grok','copilot','perplexity','metaai','deepseek','ai-agent-default'];
-    foreach ($agents as $agent) {
-        if (!$DB->record_exists('local_aiconnect_clients', ['client_id' => $agent])) {
-            $DB->insert_record('local_aiconnect_clients', [
-                'client_id' => $agent, 'client_name' => $agent,
-                'redirect_uris' => 'urn:ietf:wg:oauth:2.0:oob',
-                'scopes' => 'read write delete', 'timecreated' => time(),
-            ]);
-        }
-    }
     return true;
 }
