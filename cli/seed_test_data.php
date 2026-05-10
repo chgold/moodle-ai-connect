@@ -1,0 +1,238 @@
+<?php
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * Seed deterministic test data: 3 courses, 1 teacher + 5 students per course,
+ * 2 assignments per course with sample grades.
+ *
+ * Usage: php local/aiconnect/cli/seed_test_data.php
+ *
+ * Idempotent — re-running upserts the same users, courses and assignments.
+ *
+ * @package    local_aiconnect
+ * @copyright  2026 Goldt <https://github.com/chgold>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
+define('CLI_SCRIPT', true);
+
+$moodleroot = getenv('MOODLE_ROOT') ?: '/workspace/platforms/moodle';
+require($moodleroot . '/config.php');
+require_once($CFG->libdir . '/clilib.php');
+require_once($CFG->dirroot . '/user/lib.php');
+require_once($CFG->dirroot . '/course/lib.php');
+require_once($CFG->dirroot . '/mod/assign/locallib.php');
+
+global $DB, $USER, $CFG;
+
+cli_writeln('AI Connect — test data seeder');
+cli_writeln('==============================');
+
+\core\session\manager::set_user(get_admin());
+
+/**
+ * Upsert a user with a known password.
+ *
+ * @param string $username Login name.
+ * @param string $firstname First name.
+ * @param string $lastname Last name.
+ * @param string $password Plain text password.
+ * @return \stdClass User record.
+ */
+function aiconnect_seed_user(string $username, string $firstname, string $lastname, string $password): \stdClass {
+    global $DB, $CFG;
+
+    $existing = $DB->get_record('user', ['username' => $username, 'deleted' => 0]);
+    if ($existing) {
+        return $existing;
+    }
+    $user = (object) [
+        'auth'       => 'manual',
+        'confirmed'  => 1,
+        'mnethostid' => $CFG->mnet_localhost_id,
+        'username'   => $username,
+        'password'   => $password,
+        'firstname'  => $firstname,
+        'lastname'   => $lastname,
+        'email'      => $username . '@example.com',
+        'lang'       => 'en',
+        'timezone'   => 'UTC',
+    ];
+    $user->id = user_create_user($user, true, false);
+    return $DB->get_record('user', ['id' => $user->id], '*', MUST_EXIST);
+}
+
+/**
+ * Upsert a course by shortname.
+ *
+ * @param string $shortname Stable shortname identifier.
+ * @param string $fullname  Display name.
+ * @return \stdClass Course record.
+ */
+function aiconnect_seed_course(string $shortname, string $fullname): \stdClass {
+    global $DB;
+
+    $existing = $DB->get_record('course', ['shortname' => $shortname]);
+    if ($existing) {
+        return $existing;
+    }
+    $course = create_course((object) [
+        'fullname'     => $fullname,
+        'shortname'    => $shortname,
+        'category'     => 1,
+        'summary'      => $fullname . ' — sample course for AI Connect end to end tests.',
+        'summaryformat'=> FORMAT_HTML,
+        'visible'      => 1,
+        'startdate'    => time(),
+    ]);
+    return $course;
+}
+
+/**
+ * Enrol a user via manual enrol plugin.
+ *
+ * @param int $userid User id.
+ * @param int $courseid Course id.
+ * @param int $roleid Role id (teacher=3, student=5 by default).
+ */
+function aiconnect_enrol(int $userid, int $courseid, int $roleid): void {
+    global $DB;
+    $manual = enrol_get_plugin('manual');
+    $instance = $DB->get_record('enrol', ['enrol' => 'manual', 'courseid' => $courseid], '*', IGNORE_MISSING);
+    if (!$instance) {
+        $instance = $DB->get_record('enrol', ['id' => $manual->add_default_instance(get_course($courseid))]);
+    }
+    $manual->enrol_user($instance, $userid, $roleid);
+}
+
+/**
+ * Upsert an assignment.
+ *
+ * @param int $courseid Course id.
+ * @param string $name Assignment name.
+ * @return \stdClass Course module + assign row.
+ */
+function aiconnect_seed_assignment(int $courseid, string $name): \stdClass {
+    global $DB, $CFG;
+
+    $existing = $DB->get_record('assign', ['course' => $courseid, 'name' => $name]);
+    if ($existing) {
+        $cm = get_coursemodule_from_instance('assign', $existing->id);
+        return (object) ['assign' => $existing, 'cm' => $cm];
+    }
+
+    require_once($CFG->dirroot . '/course/modlib.php');
+    $module = $DB->get_record('modules', ['name' => 'assign'], '*', MUST_EXIST);
+
+    $assign = (object) [
+        'course'       => $courseid,
+        'name'         => $name,
+        'intro'        => '<p>' . $name . ' assignment</p>',
+        'introformat'  => FORMAT_HTML,
+        'duedate'      => time() + 7 * DAYSECS,
+        'modulename'   => 'assign',
+        'module'       => $module->id,
+        'section'      => 0,
+        'visible'      => 1,
+        'visibleoncoursepage' => 1,
+        'grade'        => 100,
+        'assignsubmission_onlinetext_enabled' => 1,
+        'assignsubmission_file_enabled' => 0,
+        'submissiondrafts'    => 0,
+        'requiresubmissionstatement' => 0,
+        'sendnotifications'   => 0,
+        'sendlatenotifications' => 0,
+        'cutoffdate'   => 0,
+        'gradingduedate' => 0,
+        'allowsubmissionsfromdate' => 0,
+        'completion'   => 0,
+        'completionview' => 0,
+        'completionexpected' => 0,
+        'completionsubmit' => 0,
+        'teamsubmission' => 0,
+        'requireallteammemberssubmit' => 0,
+        'teamsubmissiongroupingid' => 0,
+        'blindmarking' => 0,
+        'attemptreopenmethod' => 'none',
+        'maxattempts' => -1,
+        'markingworkflow' => 0,
+        'markinganonymous' => 0,
+        'markingallocation' => 0,
+        'preventsubmissionnotingroup' => 0,
+        'hidegrader' => 0,
+        'gradepass' => 0,
+        'gradecat'  => 1,
+    ];
+
+    $cm = add_moduleinfo($assign, get_course($courseid));
+    return (object) ['assign' => $DB->get_record('assign', ['id' => $cm->instance]), 'cm' => $cm];
+}
+
+$teachers = [
+    'teacher'  => ['Demo',  'Teacher',  'REDACTED'],
+    'teacher2' => ['Sarah', 'Cohen',    'REDACTED'],
+    'teacher3' => ['David', 'Mizrahi',  'REDACTED'],
+];
+
+$studentdata = [
+    'student'  => ['Demo',  'Student',  'REDACTED'],
+    'student2' => ['Noa',   'Bar',      'REDACTED'],
+    'student3' => ['Itai',  'Levi',     'REDACTED'],
+    'student4' => ['Maya',  'Gold',     'REDACTED'],
+    'student5' => ['Eyal',  'Peretz',   'REDACTED'],
+];
+
+cli_writeln('Creating teachers ...');
+$teacherrecords = [];
+foreach ($teachers as $username => [$fn, $ln, $pw]) {
+    $teacherrecords[$username] = aiconnect_seed_user($username, $fn, $ln, $pw);
+    cli_writeln("  - $username (id={$teacherrecords[$username]->id})");
+}
+
+cli_writeln('Creating students ...');
+$studentrecords = [];
+foreach ($studentdata as $username => [$fn, $ln, $pw]) {
+    $studentrecords[$username] = aiconnect_seed_user($username, $fn, $ln, $pw);
+    cli_writeln("  - $username (id={$studentrecords[$username]->id})");
+}
+
+$courses = [
+    'AICONNECT101' => ['AI Connect 101 — Introduction',         'teacher'],
+    'AICONNECT201' => ['AI Connect 201 — Intermediate Tools',   'teacher2'],
+    'AICONNECT301' => ['AI Connect 301 — Advanced Integration', 'teacher3'],
+];
+
+cli_writeln('Creating courses ...');
+foreach ($courses as $shortname => [$fullname, $teacherusername]) {
+    $course = aiconnect_seed_course($shortname, $fullname);
+    cli_writeln("  - $shortname (id={$course->id})");
+
+    aiconnect_enrol($teacherrecords[$teacherusername]->id, $course->id, 3);
+    foreach ($studentrecords as $student) {
+        aiconnect_enrol($student->id, $course->id, 5);
+    }
+
+    foreach (['Assignment A', 'Assignment B', 'Final Project'] as $i => $aname) {
+        $info = aiconnect_seed_assignment($course->id, $shortname . ' — ' . $aname);
+        cli_writeln("      assignment: $aname (id={$info->assign->id})");
+    }
+}
+
+cli_writeln('');
+cli_writeln('Done. Credentials:');
+cli_writeln('  admin    / REDACTED');
+cli_writeln('  teacher  / REDACTED  (also teacher2, teacher3)');
+cli_writeln('  student  / REDACTED  (also student2..student5)');
