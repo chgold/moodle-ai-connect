@@ -1,20 +1,65 @@
 <?php
-require_once('/workspace/platforms/moodle/config.php');
-require_once(__DIR__ . '/classes/controller/oauth_controller.php');
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Headers: Authorization, Content-Type');
+/**
+ * OAuth2 authorization, token, revoke and helper endpoints.
+ *
+ * @package    local_aiconnect
+ * @copyright  2026 Goldt <https://github.com/chgold>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
+require(__DIR__ . '/bootstrap.php');
 
-$action = required_param('action', PARAM_ALPHA);
-$ctrl   = new local_aiconnect\controller\oauth_controller();
+use local_aiconnect\controller\oauth_controller;
+use local_aiconnect\lib\http;
 
-match($action) {
-    'authorize'      => $ctrl->authorize(),
-    'token'          => $ctrl->token(),
-    'revoke'         => $ctrl->revoke(),
-    'generate_token' => $ctrl->generate_token(),
-    default          => (function() { http_response_code(400); echo json_encode(['error' => 'unknown_action']); })(),
-};
+http::send_cors_headers();
+
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
+    http_response_code(204);
+    exit;
+}
+
+try {
+    $action = required_param('action', PARAM_ALPHA);
+    $ctrl   = new oauth_controller();
+
+    switch ($action) {
+        case 'authorize':
+            $ctrl->authorize();
+            break;
+        case 'token':
+            header('Content-Type: application/json; charset=utf-8');
+            $ctrl->token();
+            break;
+        case 'revoke':
+            header('Content-Type: application/json; charset=utf-8');
+            $ctrl->revoke();
+            break;
+        case 'generate_token':
+            header('Content-Type: application/json; charset=utf-8');
+            $ctrl->generate_token();
+            break;
+        default:
+            http::oauth_error(400, 'unsupported_action');
+    }
+} catch (\moodle_exception $e) {
+    http::oauth_error(400, 'invalid_request', $e->getMessage());
+} catch (\Throwable $e) {
+    debugging('local_aiconnect oauth error: ' . $e->getMessage(), DEBUG_DEVELOPER);
+    http::oauth_error(500, 'server_error', 'Internal server error');
+}
