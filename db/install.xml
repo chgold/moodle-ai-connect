@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="local/aiconnect/db" VERSION="20260510" COMMENT="XMLDB schema for local_aiconnect (AI Connect WebMCP server)"
+<XMLDB PATH="local/aiconnect/db" VERSION="20260511" COMMENT="XMLDB schema for local_aiconnect (AI Connect WebMCP server)"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
 >
@@ -62,6 +62,29 @@
         <INDEX NAME="userid_idx" UNIQUE="false" FIELDS="userid"/>
         <INDEX NAME="expiry_idx" UNIQUE="false" FIELDS="expiry"/>
         <INDEX NAME="tokentype_revoked_idx" UNIQUE="false" FIELDS="tokentype, revoked"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_aiconnect_token_registry" COMMENT="Registry of all issued tokens (audit trail with prefix-only token storage)">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="token_prefix" TYPE="char" LENGTH="16" NOTNULL="true" SEQUENCE="false" COMMENT="First 16 chars of token only"/>
+        <FIELD NAME="user_id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="client_id" TYPE="char" LENGTH="80" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="scope" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="issued_at" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="expires_at" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="last_used_at" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="revoked_at" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="revoked_by" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="source" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="oauth" SEQUENCE="false"/>
+        <FIELD NAME="ip_address" TYPE="char" LENGTH="45" NOTNULL="false" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="token_prefix" UNIQUE="false" FIELDS="token_prefix"/>
+        <INDEX NAME="user_id" UNIQUE="false" FIELDS="user_id"/>
       </INDEXES>
     </TABLE>
     <TABLE NAME="local_aiconnect_ratelimits" COMMENT="Per token rate limit counters bucketed by minute and hour windows">

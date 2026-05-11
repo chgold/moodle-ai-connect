@@ -48,3 +48,7 @@ $string['privacy:metadata:local_aiconnect_tokens:userid']      = 'The Moodle use
 $string['privacy:metadata:local_aiconnect_tokens:scope']       = 'Scopes (permissions) granted to the token.';
 $string['privacy:metadata:local_aiconnect_ratelimits']         = 'Per-token rate-limit counters.';
 $string['task_cleanup_expired'] = 'Cleanup expired AI Connect tokens';
+$string['admin_tokens_heading'] = 'AI Connect Token Registry';
+$string['privacy:metadata:local_aiconnect_token_registry']           = 'Audit registry of every issued access token (prefix only).';
+$string['privacy:metadata:local_aiconnect_token_registry:user_id']   = 'The Moodle user the registered token authenticated as.';
+$string['privacy:metadata:local_aiconnect_token_registry:ip_address']= 'Client IP address recorded at the moment of issuance.';

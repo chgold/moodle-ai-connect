@@ -25,6 +25,7 @@
 namespace local_aiconnect\middleware;
 
 use local_aiconnect\lib\http;
+use local_aiconnect\service\token_registry;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -63,6 +64,12 @@ class auth_middleware {
         if (!$rec || time() > (int) $rec->expiry) {
             http::json_exit(401, ['error' => 'invalid_token', 'message' => 'Token expired or revoked']);
         }
+
+        if (token_registry::is_revoked($token)) {
+            http::json_exit(401, ['error' => 'invalid_token', 'message' => 'Token expired or revoked']);
+        }
+
+        token_registry::touch($token);
 
         return [
             'userid' => (int) $rec->userid,

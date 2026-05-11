@@ -39,6 +39,7 @@ function xmldb_local_aiconnect_uninstall(): bool {
     $dbman = $DB->get_manager();
 
     $tables = [
+        'local_aiconnect_token_registry',
         'local_aiconnect_ratelimits',
         'local_aiconnect_tokens',
         'local_aiconnect_codes',

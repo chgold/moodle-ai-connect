@@ -89,5 +89,30 @@ function xmldb_local_aiconnect_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026051000, 'local', 'aiconnect');
     }
 
+    if ($oldversion < 2026051100) {
+
+        $table = new xmldb_table('local_aiconnect_token_registry');
+        if (!$dbman->table_exists($table)) {
+            $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+            $table->add_field('token_prefix', XMLDB_TYPE_CHAR, '16', null, XMLDB_NOTNULL, null, null);
+            $table->add_field('user_id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+            $table->add_field('client_id', XMLDB_TYPE_CHAR, '80', null, XMLDB_NOTNULL, null, null);
+            $table->add_field('scope', XMLDB_TYPE_CHAR, '255', null, XMLDB_NOTNULL, null, null);
+            $table->add_field('issued_at', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+            $table->add_field('expires_at', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+            $table->add_field('last_used_at', XMLDB_TYPE_INTEGER, '10', null, null, null, null);
+            $table->add_field('revoked_at', XMLDB_TYPE_INTEGER, '10', null, null, null, null);
+            $table->add_field('revoked_by', XMLDB_TYPE_INTEGER, '10', null, null, null, null);
+            $table->add_field('source', XMLDB_TYPE_CHAR, '20', null, XMLDB_NOTNULL, null, 'oauth');
+            $table->add_field('ip_address', XMLDB_TYPE_CHAR, '45', null, null, null, null);
+            $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+            $table->add_index('token_prefix', XMLDB_INDEX_NOTUNIQUE, ['token_prefix']);
+            $table->add_index('user_id', XMLDB_INDEX_NOTUNIQUE, ['user_id']);
+            $dbman->create_table($table);
+        }
+
+        upgrade_plugin_savepoint(true, 2026051100, 'local', 'aiconnect');
+    }
+
     return true;
 }

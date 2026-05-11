@@ -28,6 +28,13 @@ if ($hassiteconfig) {
     $settings = new admin_settingpage('local_aiconnect', get_string('pluginname', 'local_aiconnect'));
     $ADMIN->add('localplugins', $settings);
 
+    $ADMIN->add('localplugins', new admin_externalpage(
+        'local_aiconnect_tokens',
+        get_string('admin_tokens_heading', 'local_aiconnect'),
+        new moodle_url('/local/aiconnect/admin/tokens.php'),
+        'moodle/site:config'
+    ));
+
     $settings->add(new admin_setting_configtext(
         'local_aiconnect/public_base_url',
         get_string('public_base_url', 'local_aiconnect'),

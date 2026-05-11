@@ -25,6 +25,7 @@
 namespace local_aiconnect\controller;
 
 use local_aiconnect\lib\http;
+use local_aiconnect\service\token_registry;
 use moodle_url;
 
 defined('MOODLE_INTERNAL') || die();
@@ -239,7 +240,7 @@ HTML;
             $transaction = $DB->start_delegated_transaction();
             try {
                 $DB->set_field('local_aiconnect_tokens', 'revoked', 1, ['id' => $rec->id]);
-                [$at, $newrt] = $this->issue_tokens($rec->client_id, (int) $rec->userid, $rec->scope);
+                [$at, $newrt] = $this->issue_tokens($rec->client_id, (int) $rec->userid, $rec->scope, 'refresh');
                 $transaction->allow_commit();
             } catch (\Throwable $e) {
                 $transaction->rollback($e instanceof \Exception ? $e : new \Exception($e->getMessage()));
@@ -265,14 +266,16 @@ HTML;
      * @param string|null $clientid OAuth client identifier.
      * @param int         $userid   Moodle user id.
      * @param string      $scope    Granted scopes.
+     * @param string      $source   Audit source (oauth|refresh|generate).
      * @return array{0:string,1:string} [access_token, refresh_token].
      */
-    private function issue_tokens(?string $clientid, int $userid, string $scope): array {
+    private function issue_tokens(?string $clientid, int $userid, string $scope, string $source = 'oauth'): array {
         global $DB;
 
         $accesstoken  = 'mdl_' . $this->make_token();
         $refreshtoken = 'mdlr_' . $this->make_token();
         $now = time();
+        $expiresat = $now + self::ACCESS_TOKEN_TTL;
 
         $DB->insert_record('local_aiconnect_tokens', (object) [
             'token'       => $accesstoken,
@@ -280,7 +283,7 @@ HTML;
             'client_id'   => $clientid,
             'userid'      => $userid,
             'scope'       => $scope,
-            'expiry'      => $now + self::ACCESS_TOKEN_TTL,
+            'expiry'      => $expiresat,
             'revoked'     => 0,
             'timecreated' => $now,
         ]);
@@ -297,6 +300,8 @@ HTML;
             'timecreated' => $now,
         ]);
 
+        token_registry::register($accesstoken, $userid, (string) $clientid, $scope, $expiresat, $source);
+
         return [$accesstoken, $refreshtoken];
     }
 
@@ -309,8 +314,9 @@ HTML;
         $headers = function_exists('getallheaders') ? getallheaders() : [];
         $header  = $headers['Authorization'] ?? $headers['authorization'] ?? '';
         if (str_starts_with($header, 'Bearer ')) {
-            $token = substr($header, 7);
+            $token = trim(substr($header, 7));
             $DB->set_field('local_aiconnect_tokens', 'revoked', 1, ['token' => $token]);
+            token_registry::revoke($token);
         }
         echo json_encode(['success' => true]);
     }
@@ -330,7 +336,7 @@ HTML;
         $context = \context_system::instance();
         require_capability('local/aiconnect:use', $context);
 
-        [$accesstoken, ] = $this->issue_tokens('ai-agent-default', (int) $USER->id, 'read write');
+        [$accesstoken, ] = $this->issue_tokens('ai-agent-default', (int) $USER->id, 'read write', 'generate');
 
         echo json_encode([
             'access_token' => $accesstoken,
