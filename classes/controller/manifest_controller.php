@@ -24,6 +24,7 @@
 
 namespace local_aiconnect\controller;
 
+use local_aiconnect\module\module_registry;
 use moodle_url;
 
 defined('MOODLE_INTERNAL') || die();
@@ -32,6 +33,16 @@ defined('MOODLE_INTERNAL') || die();
  * Produces the JSON manifest published at /local/aiconnect/manifest.php.
  */
 class manifest_controller {
+
+    /** @var module_registry Source of truth for the tool catalogue. */
+    private module_registry $registry;
+
+    /**
+     * @param module_registry|null $registry Override (test seam); built fresh when null.
+     */
+    public function __construct(?module_registry $registry = null) {
+        $this->registry = $registry ?? new module_registry();
+    }
 
     /**
      * Resolve the public base URL, honouring the `public_base_url` setting.
@@ -78,81 +89,7 @@ class manifest_controller {
                     'delete' => 'Delete operations (Pro)',
                 ],
             ],
-            'tools' => $this->tool_definitions(),
-        ];
-    }
-
-    /**
-     * Static tool catalogue advertised in the manifest.
-     *
-     * @return array List of tool definitions.
-     */
-    private function tool_definitions(): array {
-        return [
-            ['name' => 'moodle.getCourses',
-                'description' => 'List available courses',
-                'input_schema' => ['type' => 'object', 'properties' => ['limit' => ['type' => 'integer']]]],
-            ['name' => 'moodle.getCourse',
-                'description' => 'Get details of a specific course',
-                'input_schema' => ['type' => 'object', 'required' => ['courseid'],
-                    'properties' => ['courseid' => ['type' => 'integer']]]],
-            ['name' => 'moodle.getEnrollments',
-                'description' => 'Get courses the current user is enrolled in',
-                'input_schema' => ['type' => 'object', 'properties' => new \stdClass()]],
-            ['name' => 'moodle.getAssignments',
-                'description' => 'List assignments in a course',
-                'input_schema' => ['type' => 'object', 'required' => ['courseid'],
-                    'properties' => ['courseid' => ['type' => 'integer']]]],
-            ['name' => 'moodle.getGrades',
-                'description' => 'Get grades for the current user in a course',
-                'input_schema' => ['type' => 'object', 'required' => ['courseid'],
-                    'properties' => ['courseid' => ['type' => 'integer']]]],
-            ['name' => 'moodle.getUserProfile',
-                'description' => 'Get profile of the current user',
-                'input_schema' => ['type' => 'object', 'properties' => new \stdClass()]],
-            ['name' => 'moodle.enrollUser',
-                'description' => 'Enroll a user in a course (Pro)',
-                'input_schema' => ['type' => 'object', 'required' => ['userid', 'courseid'],
-                    'properties' => [
-                        'userid'   => ['type' => 'integer'],
-                        'courseid' => ['type' => 'integer'],
-                        'roleid'   => ['type' => 'integer'],
-                    ]]],
-            ['name' => 'moodle.createAssignment',
-                'description' => 'Create an assignment in a course (Pro)',
-                'input_schema' => ['type' => 'object', 'required' => ['courseid', 'name'],
-                    'properties' => [
-                        'courseid' => ['type' => 'integer'],
-                        'name'     => ['type' => 'string'],
-                        'intro'    => ['type' => 'string'],
-                    ]]],
-            ['name' => 'moodle.submitGrade',
-                'description' => 'Submit a grade for a student (Pro)',
-                'input_schema' => ['type' => 'object', 'required' => ['assignid', 'userid', 'grade'],
-                    'properties' => [
-                        'assignid' => ['type' => 'integer'],
-                        'userid'   => ['type' => 'integer'],
-                        'grade'    => ['type' => 'number'],
-                    ]]],
-            ['name' => 'moodle.sendMessage',
-                'description' => 'Send a message to a user (Pro)',
-                'input_schema' => ['type' => 'object', 'required' => ['touserid', 'message'],
-                    'properties' => [
-                        'touserid' => ['type' => 'integer'],
-                        'message'  => ['type' => 'string'],
-                    ]]],
-            ['name' => 'moodle.updateCourse',
-                'description' => 'Update course details (Pro)',
-                'input_schema' => ['type' => 'object', 'required' => ['courseid'],
-                    'properties' => [
-                        'courseid' => ['type' => 'integer'],
-                        'fullname' => ['type' => 'string'],
-                        'summary'  => ['type' => 'string'],
-                    ]]],
-            ['name' => 'moodle.searchUsers',
-                'description' => 'Search users by name or email (Pro)',
-                'input_schema' => ['type' => 'object', 'required' => ['query'],
-                    'properties' => ['query' => ['type' => 'string']]]],
+            'tools' => $this->registry->get_all_tools('read write'),
         ];
     }
 }
