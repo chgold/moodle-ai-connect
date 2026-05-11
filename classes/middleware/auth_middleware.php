@@ -77,10 +77,34 @@ class auth_middleware {
      * @param string $token Bearer token of the caller.
      */
     public static function check_rate_limit(string $token): void {
-        global $DB;
+        self::enforce_window($token,
+            (int) (get_config('local_aiconnect', 'ratelimit_minute') ?: self::DEFAULT_MINUTE_LIMIT),
+            (int) (get_config('local_aiconnect', 'ratelimit_hour') ?: self::DEFAULT_HOUR_LIMIT));
+    }
 
-        $perminute = (int) (get_config('local_aiconnect', 'ratelimit_minute') ?: self::DEFAULT_MINUTE_LIMIT);
-        $perhour   = (int) (get_config('local_aiconnect', 'ratelimit_hour') ?: self::DEFAULT_HOUR_LIMIT);
+    /**
+     * Enforce per-IP rate limits on OAuth endpoints (authorize, token, revoke).
+     * Bucket key is `ip:<bucket>:<remoteaddr>` so it cannot collide with bearer tokens.
+     *
+     * @param string $bucket Logical bucket (e.g. `authorize`, `token`).
+     * @param int    $perminute Requests per minute per IP (default 10).
+     * @param int    $perhour Requests per hour per IP (default 60).
+     */
+    public static function check_ip_rate_limit(string $bucket, int $perminute = 10, int $perhour = 60): void {
+        $ip = getremoteaddr() ?: 'unknown';
+        $key = 'ip:' . $bucket . ':' . $ip;
+        self::enforce_window($key, $perminute, $perhour);
+    }
+
+    /**
+     * Shared sliding-window enforcement against `local_aiconnect_ratelimits`.
+     *
+     * @param string $key       Lookup key (bearer token or `ip:*` bucket).
+     * @param int    $perminute Per-minute cap.
+     * @param int    $perhour   Per-hour cap.
+     */
+    private static function enforce_window(string $key, int $perminute, int $perhour): void {
+        global $DB;
         $now = time();
 
         $windows = [
@@ -90,7 +114,7 @@ class auth_middleware {
 
         foreach ($windows as [$windowtype, $windowstart, $limit]) {
             $rec = $DB->get_record('local_aiconnect_ratelimits', [
-                'token' => $token, 'windowtype' => $windowtype,
+                'token' => $key, 'windowtype' => $windowtype,
             ]);
 
             if ($rec && (int) $rec->windowstart === $windowstart) {
@@ -109,10 +133,10 @@ class auth_middleware {
             $transaction = $DB->start_delegated_transaction();
             try {
                 $DB->delete_records('local_aiconnect_ratelimits', [
-                    'token' => $token, 'windowtype' => $windowtype,
+                    'token' => $key, 'windowtype' => $windowtype,
                 ]);
                 $DB->insert_record('local_aiconnect_ratelimits', (object) [
-                    'token'        => $token,
+                    'token'        => $key,
                     'windowtype'   => $windowtype,
                     'windowstart'  => $windowstart,
                     'requestcount' => 1,
