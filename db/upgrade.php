@@ -114,5 +114,23 @@ function xmldb_local_aiconnect_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026051100, 'local', 'aiconnect');
     }
 
+    if ($oldversion < 2026051300) {
+
+        // Seed the canonical webmcp-master OAuth client on existing installs.
+        $table = new xmldb_table('local_aiconnect_clients');
+        if ($dbman->table_exists($table)
+            && !$DB->record_exists('local_aiconnect_clients', ['client_id' => 'webmcp-master'])) {
+            $DB->insert_record('local_aiconnect_clients', (object) [
+                'client_id'     => 'webmcp-master',
+                'client_name'   => 'WebMCP Master',
+                'redirect_uris' => 'urn:ietf:wg:oauth:2.0:oob',
+                'scopes'        => 'read write delete manage_users',
+                'timecreated'   => time(),
+            ]);
+        }
+
+        upgrade_plugin_savepoint(true, 2026051300, 'local', 'aiconnect');
+    }
+
     return true;
 }

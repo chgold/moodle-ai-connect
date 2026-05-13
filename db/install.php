@@ -36,12 +36,23 @@ defined('MOODLE_INTERNAL') || die();
 function xmldb_local_aiconnect_install(): bool {
     global $DB;
 
+    $now = time();
+
+    // Canonical broad-scope client — listed first in auth.registered_clients.
+    if (!$DB->record_exists('local_aiconnect_clients', ['client_id' => 'webmcp-master'])) {
+        $DB->insert_record('local_aiconnect_clients', (object) [
+            'client_id'     => 'webmcp-master',
+            'client_name'   => 'WebMCP Master',
+            'redirect_uris' => 'urn:ietf:wg:oauth:2.0:oob',
+            'scopes'        => 'read write delete manage_users',
+            'timecreated'   => $now,
+        ]);
+    }
+
     $agents = [
         'claude', 'chatgpt', 'gemini', 'grok', 'copilot',
         'perplexity', 'metaai', 'deepseek', 'ai-agent-default',
     ];
-
-    $now = time();
     foreach ($agents as $agent) {
         if ($DB->record_exists('local_aiconnect_clients', ['client_id' => $agent])) {
             continue;
