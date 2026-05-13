@@ -58,12 +58,63 @@ class manifest_controller {
     }
 
     /**
+     * Fetch registered OAuth clients keyed by client_id with the display name as value.
+     *
+     * Used to populate `auth.registered_clients` so AI agents can discover
+     * accepted client identifiers directly from the manifest.
+     *
+     * @return array<string, string> Map of client_id => client_name (empty when DB unavailable).
+     */
+    private function registered_clients(): array {
+        global $DB;
+
+        try {
+            $records = $DB->get_records_sql(
+                'SELECT client_id, client_name FROM {local_aiconnect_clients} ORDER BY id ASC'
+            );
+        } catch (\Throwable $e) {
+            return [];
+        }
+
+        $clients = [];
+        foreach ($records as $record) {
+            $clientid = (string) ($record->client_id ?? '');
+            if ($clientid === '') {
+                continue;
+            }
+            $clients[$clientid] = (string) ($record->client_name ?? $clientid);
+        }
+        return $clients;
+    }
+
+    /**
      * Build the manifest payload.
      *
      * @return array Manifest array ready to be JSON-encoded.
      */
     public function get(): array {
         $base = $this->base_url() . '/local/aiconnect';
+
+        $auth = [
+            'type'                  => 'oauth2',
+            'flow'                  => 'authorization_code',
+            'pkce_required'         => true,
+            'code_challenge_method' => 'S256',
+            'authorization_url'     => "$base/oauth.php?action=authorize",
+            'token_url'             => "$base/oauth.php?action=token",
+            'revocation_url'        => "$base/oauth.php?action=revoke",
+            'scopes'                => [
+                'read'   => 'Read courses, grades, assignments',
+                'write'  => 'Manage enrollments, grades (Pro)',
+                'delete' => 'Delete operations (Pro)',
+            ],
+        ];
+
+        $clients = $this->registered_clients();
+        if (!empty($clients)) {
+            $auth['registered_clients'] = $clients;
+        }
+
         return [
             'schema_version' => '1.0',
             'name'           => 'moodle-plugin',
@@ -75,20 +126,7 @@ class manifest_controller {
                 'url'         => "$base/v1",
                 'description' => 'Base URL — tool endpoints at /v1/tools/{tool_name}',
             ],
-            'auth' => [
-                'type'                  => 'oauth2',
-                'flow'                  => 'authorization_code',
-                'pkce_required'         => true,
-                'code_challenge_method' => 'S256',
-                'authorization_url'     => "$base/oauth.php?action=authorize",
-                'token_url'             => "$base/oauth.php?action=token",
-                'revocation_url'        => "$base/oauth.php?action=revoke",
-                'scopes'                => [
-                    'read'   => 'Read courses, grades, assignments',
-                    'write'  => 'Manage enrollments, grades (Pro)',
-                    'delete' => 'Delete operations (Pro)',
-                ],
-            ],
+            'auth'  => $auth,
             'tools' => $this->registry->get_all_tools('read write'),
         ];
     }
