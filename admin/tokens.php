@@ -31,19 +31,38 @@ admin_externalpage_setup('local_aiconnect_tokens');
 $context = context_system::instance();
 require_capability('moodle/site:config', $context);
 
-$action   = optional_param('action', '', PARAM_ALPHA);
-$id       = optional_param('id', 0, PARAM_INT);
-$userid   = optional_param('userid', 0, PARAM_INT);
-$clientid = optional_param('clientid', '', PARAM_ALPHANUMEXT);
-$status   = optional_param('status', '', PARAM_ALPHA);
-$page     = optional_param('page', 0, PARAM_INT);
+$action      = optional_param('action', '', PARAM_ALPHA);
+$bulk_action = optional_param('bulk_action', '', PARAM_ALPHA);
+$id          = optional_param('id', 0, PARAM_INT);
+$userid      = optional_param('userid', 0, PARAM_INT);
+$clientid    = optional_param('clientid', '', PARAM_ALPHANUMEXT);
+$status      = optional_param('status', '', PARAM_ALPHA);
+$page        = optional_param('page', 0, PARAM_INT);
 
+// Single revoke (GET with action=revoke).
 if ($action === 'revoke' && $id > 0) {
     require_sesskey();
     token_list::revoke_by_id($id);
     redirect(new moodle_url('/local/aiconnect/admin/tokens.php', [
         'userid' => $userid ?: '', 'clientid' => $clientid, 'status' => $status, 'page' => $page,
     ]));
+}
+
+// Bulk revoke actions (POST with bulk_action).
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $bulk_action !== '') {
+    require_sesskey();
+    $count = 0;
+    if ($bulk_action === 'revoke_unused') {
+        $count = token_list::revoke_bulk_unused();
+    } else if ($bulk_action === 'revoke_inactive') {
+        $count = token_list::revoke_bulk_inactive();
+    } else if ($bulk_action === 'revoke_all') {
+        $count = token_list::revoke_bulk_all();
+    }
+    redirect(new moodle_url('/local/aiconnect/admin/tokens.php', [
+        'userid' => $userid ?: '', 'clientid' => $clientid, 'status' => $status, 'page' => $page,
+    ]), get_string('mytokens_revoked_bulk_ok', 'local_aiconnect', $count), null,
+    \core\output\notification::NOTIFY_SUCCESS);
 }
 
 $PAGE->set_url('/local/aiconnect/admin/tokens.php');

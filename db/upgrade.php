@@ -132,5 +132,42 @@ function xmldb_local_aiconnect_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026051300, 'local', 'aiconnect');
     }
 
+    if ($oldversion < 2026052500) {
+
+        $table = new xmldb_table('local_aiconnect_token_registry');
+
+        // Add last_used_ip column.
+        $field = new xmldb_field('last_used_ip', XMLDB_TYPE_CHAR, '45', null, null, null, null, 'ip_address');
+        if ($dbman->table_exists($table) && !$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Add last_used_ua column.
+        $field = new xmldb_field('last_used_ua', XMLDB_TYPE_CHAR, '255', null, null, null, null, 'last_used_ip');
+        if ($dbman->table_exists($table) && !$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Add refresh_expires_at column.
+        $field = new xmldb_field('refresh_expires_at', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'last_used_ua');
+        if ($dbman->table_exists($table) && !$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Add composite index on revoked_at + expires_at for cleanup queries.
+        $index = new xmldb_index('revoked_expires_idx', XMLDB_INDEX_NOTUNIQUE, ['revoked_at', 'expires_at']);
+        if ($dbman->table_exists($table) && !$dbman->index_exists($table, $index)) {
+            $dbman->add_index($table, $index);
+        }
+
+        // Add index on last_used_at for inactivity cleanup queries.
+        $index = new xmldb_index('last_used_at_idx', XMLDB_INDEX_NOTUNIQUE, ['last_used_at']);
+        if ($dbman->table_exists($table) && !$dbman->index_exists($table, $index)) {
+            $dbman->add_index($table, $index);
+        }
+
+        upgrade_plugin_savepoint(true, 2026052500, 'local', 'aiconnect');
+    }
+
     return true;
 }

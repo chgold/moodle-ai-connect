@@ -69,7 +69,16 @@ class auth_middleware {
             http::json_exit(401, ['error' => 'invalid_token', 'message' => 'Token expired or revoked']);
         }
 
-        token_registry::touch($token);
+        // Best-effort: update last_used_at, last_used_ip, last_used_ua.
+        $headers = $headers ?? [];
+        $ip = getremoteaddr() ?: null;
+        $ua = $headers['User-Agent'] ?? $headers['user-agent'] ?? null;
+        token_registry::touch_last_used($token, $ip ?: null, $ua ?: null);
+
+        // Lazy cleanup: run once per day in the background of a normal request.
+        if (token_registry::should_run_cleanup()) {
+            token_registry::run_cleanup();
+        }
 
         return [
             'userid' => (int) $rec->userid,

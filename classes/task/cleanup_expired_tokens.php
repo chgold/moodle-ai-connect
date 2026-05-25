@@ -25,16 +25,19 @@
 namespace local_aiconnect\task;
 
 use core\task\scheduled_task;
+use local_aiconnect\service\token_registry;
 
 defined('MOODLE_INTERNAL') || die();
 
 /**
- * Daily cleanup of expired OAuth state.
+ * Daily cleanup of expired OAuth state and token registry.
  *
- * Removes:
+ * Removes / revokes:
  *  - access tokens whose `expiry` is older than the grace window (7 days).
  *  - all consumed or expired authorization codes.
  *  - rate-limit rows that belong to stale windows.
+ *  - token registry rows per 4-rule lifecycle (unused 30d, inactive 180d,
+ *    expired 90d, hard-delete revoked 365d).
  */
 class cleanup_expired_tokens extends scheduled_task {
 
@@ -59,6 +62,7 @@ class cleanup_expired_tokens extends scheduled_task {
         $now = time();
         $cutoff = $now - self::GRACE_SECONDS;
 
+        // Phase 1: clean OAuth tokens, codes, and rate-limit rows.
         $transaction = $DB->start_delegated_transaction();
         try {
             $DB->delete_records_select('local_aiconnect_tokens', 'expiry < :cutoff', ['cutoff' => $cutoff]);
@@ -69,12 +73,18 @@ class cleanup_expired_tokens extends scheduled_task {
         } catch (\Throwable $e) {
             $transaction->rollback($e instanceof \Exception ? $e : new \Exception($e->getMessage()));
             if (!defined('PHPUNIT_TEST') || !PHPUNIT_TEST) {
-                mtrace('local_aiconnect cleanup failed: ' . $e->getMessage());
+                mtrace('local_aiconnect cleanup (phase 1) failed: ' . $e->getMessage());
             }
         }
 
+        // Phase 2: token registry lifecycle cleanup (4-rule).
+        $summary = token_registry::run_cleanup();
+
         if (!defined('PHPUNIT_TEST') || !PHPUNIT_TEST) {
-            mtrace('local_aiconnect: cleanup_expired_tokens complete');
+            mtrace(sprintf(
+                'local_aiconnect: cleanup_expired_tokens complete. Registry: unused=%d inactive=%d expired=%d deleted=%d',
+                $summary['unused'], $summary['inactive'], $summary['expired'], $summary['deleted']
+            ));
         }
     }
 }

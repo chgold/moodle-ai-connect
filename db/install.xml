@@ -78,6 +78,9 @@
         <FIELD NAME="revoked_by" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
         <FIELD NAME="source" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="oauth" SEQUENCE="false"/>
         <FIELD NAME="ip_address" TYPE="char" LENGTH="45" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="last_used_ip" TYPE="char" LENGTH="45" NOTNULL="false" SEQUENCE="false" COMMENT="Client IP from last successful API call (IPv6 safe)"/>
+        <FIELD NAME="last_used_ua" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false" COMMENT="User-Agent string from last successful API call"/>
+        <FIELD NAME="refresh_expires_at" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Unix timestamp when the associated refresh token expires"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
@@ -85,6 +88,8 @@
       <INDEXES>
         <INDEX NAME="token_prefix" UNIQUE="false" FIELDS="token_prefix"/>
         <INDEX NAME="user_id" UNIQUE="false" FIELDS="user_id"/>
+        <INDEX NAME="revoked_expires_idx" UNIQUE="false" FIELDS="revoked_at, expires_at"/>
+        <INDEX NAME="last_used_at_idx" UNIQUE="false" FIELDS="last_used_at"/>
       </INDEXES>
     </TABLE>
     <TABLE NAME="local_aiconnect_ratelimits" COMMENT="Per token rate limit counters bucketed by minute and hour windows">
