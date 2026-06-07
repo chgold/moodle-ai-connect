@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<ruleset name="moodle-ai-connect">
+    <description>Coding standard for local_aiconnect (Moodle plugin).</description>
+
+    <!--
+        Moodle has its own coding standard (moodle/local_codechecker) which is
+        not packaged with PHP_CodeSniffer. Until it's installed here, we use
+        PSR-12 as a lightweight baseline. The Moodle plugin reviewer at
+        plugins.moodle.org runs the official Moodle checker separately.
+    -->
+    <rule ref="PSR12">
+        <!-- Moodle requires GPL header comment block — PSR-12 doesn't care -->
+        <exclude name="PSR12.Files.FileHeader.SpacingAfterBlock"/>
+        <!-- Moodle uses `global $DB` etc. — long lines are unavoidable in calls -->
+        <exclude name="Generic.Files.LineLength"/>
+    </rule>
+
+    <!-- Scan PHP only, skip vendored / generated / Moodle-installed dirs -->
+    <arg name="extensions" value="php"/>
+    <exclude-pattern>*/vendor/*</exclude-pattern>
+    <exclude-pattern>*/node_modules/*</exclude-pattern>
+    <exclude-pattern>*/tests/*</exclude-pattern>
+    <exclude-pattern>*/dist/*</exclude-pattern>
+    <exclude-pattern>*/lang/*</exclude-pattern>
+</ruleset>
