@@ -25,6 +25,18 @@
 define('NO_MOODLE_COOKIES', true);
 define('AJAX_SCRIPT', true);
 
+// Early auth gate — must run before Moodle init to prevent redirect-to-login
+(function () {
+    $auth_header = isset($_SERVER['HTTP_AUTHORIZATION']) ? $_SERVER['HTTP_AUTHORIZATION'] : '';
+    if (strncmp($auth_header, 'Bearer ', 7) !== 0) {
+        http_response_code(401);
+        header('Content-Type: application/json; charset=utf-8');
+        header('WWW-Authenticate: Bearer realm="AI Connect"');
+        echo json_encode(['error' => 'unauthorized', 'message' => 'Bearer token required']);
+        exit;
+    }
+})();
+
 require(__DIR__ . '/bootstrap.php');
 
 use local_aiconnect\controller\tools_controller;
@@ -34,12 +46,14 @@ use local_aiconnect\middleware\auth_middleware;
 http::send_cors_headers();
 header('Content-Type: application/json; charset=utf-8');
 
-if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+
+if ($method === 'OPTIONS') {
     http_response_code(204);
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+if ($method !== 'POST' && $method !== 'GET') {
     http::json_exit(405, ['error' => 'method_not_allowed']);
 }
 
@@ -48,13 +62,38 @@ try {
     auth_middleware::check_rate_limit($auth['token']);
 
     $tool = required_param('tool', PARAM_RAW_TRIMMED);
-    $rawbody = file_get_contents('php://input') ?: '';
-    $body = $rawbody === '' ? [] : (json_decode($rawbody, true) ?? []);
-    if (!is_array($body)) {
-        http::json_exit(400, ['error' => 'invalid_body', 'message' => 'Request body must be a JSON object']);
+    $controller = new tools_controller();
+
+    if ($method === 'GET') {
+        // Parse arguments from the query string.
+        // Priority: ?arguments={"key":"value"} (JSON blob) → individual ?key=value params.
+        $rawargs = isset($_GET['arguments']) ? (string) $_GET['arguments'] : null;
+        if ($rawargs !== null && $rawargs !== '') {
+            $body = json_decode($rawargs, true);
+            if (!is_array($body)) {
+                http::json_exit(400, ['error' => 'invalid_body',
+                    'message' => 'The "arguments" query parameter must be a JSON object']);
+            }
+        } else {
+            // Fall back to individual GET params, excluding reserved keys.
+            $body = array_diff_key($_GET, array_flip(['tool', 'arguments']));
+        }
+
+        // Only read-scope tools are accessible via GET; reject anything wider.
+        $toolscope = $controller->get_tool_scope($tool);
+        if ($toolscope !== null && $toolscope !== 'read') {
+            http::json_exit(405, ['error' => 'method_not_allowed',
+                'message' => 'Write/admin tools must be called via POST']);
+        }
+    } else {
+        // POST: parse from request body JSON.
+        $rawbody = file_get_contents('php://input') ?: '';
+        $body = $rawbody === '' ? [] : (json_decode($rawbody, true) ?? []);
+        if (!is_array($body)) {
+            http::json_exit(400, ['error' => 'invalid_body', 'message' => 'Request body must be a JSON object']);
+        }
     }
 
-    $controller = new tools_controller();
     $result = $controller->execute($tool, $body, $auth['userid'], $auth['scope']);
 
     if (isset($result['error'])) {

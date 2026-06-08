@@ -51,7 +51,7 @@ function xmldb_local_aiconnect_install(): bool {
 
     $agents = [
         'claude', 'chatgpt', 'gemini', 'grok', 'copilot',
-        'perplexity', 'metaai', 'deepseek', 'ai-agent-default',
+        'perplexity', 'meta-ai', 'deepseek', 'ai-agent-default',
     ];
     foreach ($agents as $agent) {
         if ($DB->record_exists('local_aiconnect_clients', ['client_id' => $agent])) {

@@ -108,5 +108,19 @@
         <INDEX NAME="windowstart_idx" UNIQUE="false" FIELDS="windowstart"/>
       </INDEXES>
     </TABLE>
+    <TABLE NAME="local_aiconnect_blocked" COMMENT="Users blocked by an admin from accessing the AI Connect API">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Moodle user id that is blocked"/>
+        <FIELD NAME="blockedby" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Admin user id who performed the block"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="userid_idx" UNIQUE="true" FIELDS="userid"/>
+      </INDEXES>
+    </TABLE>
   </TABLES>
 </XMLDB>

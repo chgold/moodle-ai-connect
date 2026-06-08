@@ -96,3 +96,32 @@ $string['admin_tokens_bulk_inactive']   = 'Revoke all inactive';
 $string['admin_tokens_bulk_all']        = 'Revoke ALL active (DANGER)';
 $string['admin_tokens_col_lastip']      = 'Last IP';
 $string['admin_tokens_col_lastua']      = 'Last UA';
+
+// Admin blocked-users page.
+$string['admin_blocked_heading']          = 'AI Connect Blocked Users';
+$string['admin_blocked_desc']             = 'Users listed here are blocked from accessing the AI Connect API regardless of token validity. Blocked users receive HTTP 403 on every request.';
+$string['admin_blocked_none']             = 'No users are currently blocked.';
+$string['admin_blocked_userid_label']     = 'Moodle user ID to block:';
+$string['admin_blocked_block_btn']        = 'Block user';
+$string['admin_blocked_unblock_btn']      = 'Unblock';
+$string['admin_blocked_col_user']         = 'User';
+$string['admin_blocked_col_blockedby']    = 'Blocked by';
+$string['admin_blocked_col_since']        = 'Blocked since';
+$string['admin_blocked_col_action']       = 'Action';
+$string['admin_blocked_confirm_block']    = 'Block this user from AI Connect API access?';
+$string['admin_blocked_confirm_unblock']  = 'Unblock this user and restore API access?';
+$string['admin_blocked_blocked_ok']       = 'User has been blocked from AI Connect.';
+$string['admin_blocked_unblocked_ok']     = 'User has been unblocked and may access AI Connect again.';
+$string['admin_blocked_user_notfound']    = 'User not found — please check the Moodle user ID.';
+
+// Admin emergency-disconnect page.
+$string['admin_emergency_heading']        = 'AI Connect Emergency Disconnect';
+$string['admin_emergency_warning_title']  = 'DANGER — Destructive action';
+$string['admin_emergency_desc']           = 'This will immediately revoke ALL active tokens for ALL users site-wide. Users will need to re-authorise to obtain new tokens. This action cannot be undone.';
+$string['admin_emergency_active_count']   = 'Active (non-revoked) tokens in registry: <strong>{$a}</strong>';
+$string['admin_emergency_btn']            = '⚡ Emergency Revoke All Tokens';
+$string['admin_emergency_confirm_js']     = 'DANGER: This will revoke ALL tokens for ALL users. This cannot be undone. Continue?';
+$string['admin_emergency_confirm_js2']    = 'Are you absolutely sure? Every user will lose API access immediately.';
+$string['admin_emergency_revoked']        = '{$a} token(s) have been revoked. All API access is now disabled.';
+$string['admin_emergency_none']           = 'No active tokens found — nothing to revoke.';
+$string['admin_emergency_back']           = '← Back to Token Registry';

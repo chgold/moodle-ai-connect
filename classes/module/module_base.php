@@ -124,6 +124,19 @@ abstract class module_base {
     }
 
     /**
+     * Return the required_scope for a single registered tool.
+     *
+     * Used by the GET endpoint guard to reject write/admin tools
+     * before executing them.
+     *
+     * @param string $shortname Short tool name (without module prefix).
+     * @return string 'read' or 'write'; defaults to 'read' for unknown tools.
+     */
+    public function get_tool_scope(string $shortname): string {
+        return $this->tools[$shortname]['required_scope'] ?? 'read';
+    }
+
+    /**
      * @return string Module namespace prefix.
      */
     public function get_module_name(): string {

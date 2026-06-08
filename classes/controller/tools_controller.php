@@ -60,4 +60,16 @@ class tools_controller {
             'scope'  => $scope,
         ]);
     }
+
+    /**
+     * Return the required_scope for a tool without executing it.
+     *
+     * Used by the GET endpoint guard to reject non-read tools before running them.
+     *
+     * @param string $tool Fully-qualified tool name.
+     * @return string|null 'read'|'write', or null when the tool is not registered.
+     */
+    public function get_tool_scope(string $tool): ?string {
+        return $this->registry->get_tool_scope($tool);
+    }
 }

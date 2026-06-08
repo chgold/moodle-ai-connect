@@ -624,6 +624,58 @@ class token_registry {
     }
 
     /**
+     * Emergency revoke — mark EVERY non-revoked token as revoked, site-wide.
+     *
+     * This is a destructive, irreversible operation intended for incident
+     * response only. It revokes all registry rows (regardless of expiry) and
+     * cascades to {local_aiconnect_tokens} so every in-flight Bearer call
+     * is immediately rejected.
+     *
+     * @param int|null $revokedby Admin user id performing the action; null = current user.
+     * @return int Number of registry rows revoked.
+     */
+    public static function revoke_all(?int $revokedby = null): int {
+        global $DB, $USER;
+
+        $count = (int) $DB->count_records_select(
+            'local_aiconnect_token_registry',
+            'revoked_at IS NULL'
+        );
+
+        if ($count === 0) {
+            return 0;
+        }
+
+        $now = time();
+        $by  = $revokedby ?? (isset($USER->id) ? (int) $USER->id : 0);
+
+        $transaction = $DB->start_delegated_transaction();
+        try {
+            // Revoke every non-revoked registry entry.
+            $DB->execute(
+                "UPDATE {local_aiconnect_token_registry}
+                    SET revoked_at = :now, revoked_by = :by
+                  WHERE revoked_at IS NULL",
+                ['now' => $now, 'by' => $by]
+            );
+
+            // Cascade: mark all non-revoked tokens in the OAuth table.
+            if ($DB->get_manager()->table_exists('local_aiconnect_tokens')) {
+                $DB->execute(
+                    "UPDATE {local_aiconnect_tokens} SET revoked = 1 WHERE revoked = 0",
+                    []
+                );
+            }
+
+            $transaction->allow_commit();
+            return $count;
+        } catch (\Throwable $e) {
+            $transaction->rollback($e instanceof \Exception ? $e : new \Exception($e->getMessage()));
+            return 0;
+        }
+    }
+
+    /**
      * Normalize a source string to one of the allowed values.
      *
      * @param string $source Raw source value.

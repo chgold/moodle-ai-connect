@@ -35,6 +35,20 @@ if ($hassiteconfig) {
         'moodle/site:config'
     ));
 
+    $ADMIN->add('localplugins', new admin_externalpage(
+        'local_aiconnect_blocked',
+        get_string('admin_blocked_heading', 'local_aiconnect'),
+        new moodle_url('/local/aiconnect/admin/blocked.php'),
+        'moodle/site:config'
+    ));
+
+    $ADMIN->add('localplugins', new admin_externalpage(
+        'local_aiconnect_emergency',
+        get_string('admin_emergency_heading', 'local_aiconnect'),
+        new moodle_url('/local/aiconnect/admin/emergency-revoke.php'),
+        'moodle/site:config'
+    ));
+
     $settings->add(new admin_setting_configtext(
         'local_aiconnect/public_base_url',
         get_string('public_base_url', 'local_aiconnect'),

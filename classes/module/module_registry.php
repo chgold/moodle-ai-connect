@@ -108,6 +108,22 @@ class module_registry {
     }
 
     /**
+     * Return the required_scope for a single tool.
+     *
+     * Used by the GET endpoint guard to enforce read-only access via HTTP GET.
+     *
+     * @param string $toolname Fully-qualified tool name (e.g. moodle.getCourses).
+     * @return string|null 'read'|'write', or null when the tool is not found.
+     */
+    public function get_tool_scope(string $toolname): ?string {
+        if (!str_contains($toolname, '.') || !isset($this->tool_index[$toolname])) {
+            return null;
+        }
+        [, $shortname] = explode('.', $toolname, 2);
+        return $this->tool_index[$toolname]->get_tool_scope($shortname);
+    }
+
+    /**
      * @return array<int, module_base> Currently registered modules.
      */
     public function get_modules(): array {

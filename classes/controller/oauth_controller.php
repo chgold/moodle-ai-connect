@@ -72,6 +72,31 @@ class oauth_controller {
         return bin2hex(random_bytes(32));
     }
 
+    private static function normalize_client_id(string $clientid): string {
+        $lower = strtolower($clientid);
+        $stripped = preg_replace('/[-_]ai$/', '', $lower);
+        return preg_replace('/[-_]/', '', $stripped);
+    }
+
+    private function find_client(string $clientid): ?\stdClass {
+        global $DB;
+        $exact = $DB->get_record('local_aiconnect_clients', ['client_id' => $clientid]);
+        if ($exact) {
+            return $exact;
+        }
+        $normalized = self::normalize_client_id($clientid);
+        if ($normalized === '') {
+            return null;
+        }
+        $all = $DB->get_records('local_aiconnect_clients');
+        foreach ($all as $row) {
+            if (self::normalize_client_id($row->client_id) === $normalized) {
+                return $row;
+            }
+        }
+        return null;
+    }
+
     /**
      * Handle GET (consent screen) and POST (approval) on the authorize endpoint.
      */
@@ -92,9 +117,11 @@ class oauth_controller {
             http::oauth_error(400, 'invalid_request', 'Only S256 code_challenge_method is supported');
         }
 
-        if (!$DB->record_exists('local_aiconnect_clients', ['client_id' => $clientid])) {
+        $matched = $this->find_client($clientid);
+        if (!$matched) {
             http::oauth_error(400, 'invalid_client');
         }
+        $clientid = $matched->client_id;
 
         if (!http::is_redirect_uri_allowed($redirecturi)) {
             http::oauth_error(400, 'invalid_request', 'redirect_uri must use https');
@@ -135,7 +162,7 @@ class oauth_controller {
             return;
         }
 
-        $client = $DB->get_record('local_aiconnect_clients', ['client_id' => $clientid], '*', MUST_EXIST);
+        $client = $matched;
         echo $this->render_consent($client->client_name, $scope, $clientid, $challenge, $redirecturi, $state);
     }
 

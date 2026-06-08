@@ -26,6 +26,7 @@ namespace local_aiconnect\middleware;
 
 use local_aiconnect\lib\http;
 use local_aiconnect\service\token_registry;
+use local_aiconnect\service\user_blocking;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -67,6 +68,11 @@ class auth_middleware {
 
         if (token_registry::is_revoked($token)) {
             http::json_exit(401, ['error' => 'invalid_token', 'message' => 'Token expired or revoked']);
+        }
+
+        // Block check — must happen after token validation so we know the user id.
+        if (user_blocking::is_user_blocked((int) $rec->userid)) {
+            http::json_exit(403, ['error' => 'user_blocked', 'message' => 'User is blocked from API access']);
         }
 
         // Best-effort: update last_used_at, last_used_ip, last_used_ua.
