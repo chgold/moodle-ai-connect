@@ -299,8 +299,8 @@ HTML;
     private function issue_tokens(?string $clientid, int $userid, string $scope, string $source = 'oauth'): array {
         global $DB;
 
-        $accesstoken  = 'mdl_' . $this->make_token();
-        $refreshtoken = 'mdlr_' . $this->make_token();
+        $accesstoken  = 'xfa_' . $this->make_token();
+        $refreshtoken = 'xfr_' . $this->make_token();
         $now = time();
         $expiresat = $now + self::ACCESS_TOKEN_TTL;
 
@@ -363,12 +363,77 @@ HTML;
         $context = \context_system::instance();
         require_capability('local/aiconnect:use', $context);
 
-        [$accesstoken, ] = $this->issue_tokens('ai-agent-default', (int) $USER->id, 'read write', 'generate');
+        [$accesstoken, $refreshtoken] = $this->issue_tokens('ai-agent-default', (int) $USER->id, 'read write', 'generate');
 
         echo json_encode([
-            'access_token' => $accesstoken,
-            'token_type'   => 'Bearer',
-            'expires_in'   => self::ACCESS_TOKEN_TTL,
+            'access_token'  => $accesstoken,
+            'refresh_token' => $refreshtoken,
+            'token_type'    => 'Bearer',
+            'expires_in'    => self::ACCESS_TOKEN_TTL,
+            'prompt'        => $this->build_prompt($accesstoken, $refreshtoken),
         ]);
+    }
+
+    /**
+     * Build a copy-paste prompt for AI agents (Servio Protocol format).
+     *
+     * @param string $accesstoken  The generated access token.
+     * @param string $refreshtoken The generated refresh token.
+     * @return string Complete prompt text.
+     */
+    private function build_prompt(string $accesstoken, string $refreshtoken): string {
+        global $CFG, $SITE;
+
+        $base     = rtrim($CFG->wwwroot, '/');
+        $parsed   = parse_url($base);
+        $host     = $parsed['host'] ?? 'moodle';
+        $path     = rtrim($parsed['path'] ?? '', '/');
+        $sitemcp  = $path !== '' ? $host . $path : $host;
+        $sitekey  = preg_replace('/[^a-zA-Z0-9_-]/', '_', $sitemcp);
+        $sitename = $SITE->fullname ?? 'Moodle LMS';
+
+        $manifest = $base . '/local/aiconnect/manifest.php';
+        $tokenurl = $base . '/local/aiconnect/oauth.php?action=token';
+
+        $readtools = [
+            ['name' => 'moodle.getCourses',     'hint' => 'List available courses'],
+            ['name' => 'moodle.getCourse',       'hint' => 'Get course details by ID'],
+            ['name' => 'moodle.getEnrollments',  'hint' => 'List user enrollments'],
+            ['name' => 'moodle.getAssignments',  'hint' => 'List course assignments'],
+            ['name' => 'moodle.getGrades',       'hint' => 'Get grade data for a course'],
+            ['name' => 'moodle.getUserProfile',  'hint' => 'Get user profile information'],
+        ];
+
+        $lines   = [];
+        $lines[] = 'You have access to ' . $sitename . ' via AI Connect.';
+        $lines[] = '';
+        $lines[] = '## MCP (Recommended — Claude Desktop)';
+        $lines[] = 'Call webmcp_addSite with these parameters:';
+        $lines[] = '  name:          "' . $sitemcp . '"';
+        $lines[] = '  manifest_url:  "' . $manifest . '"';
+        $lines[] = '  token:         "Bearer ' . $accesstoken . '"';
+        $lines[] = '  refresh_token: "' . $refreshtoken . '"';
+        $lines[] = '';
+        $lines[] = 'IMPORTANT: Paste BOTH token and refresh_token — otherwise the connection will stop working after 1 hour.';
+        $lines[] = '';
+        $lines[] = 'After adding the site, call these tools by EXACT name (do not search — use directly):';
+        foreach ($readtools as $t) {
+            $mcpname = $sitekey . '_' . str_replace('.', '_', $t['name']);
+            $lines[] = '  ' . str_pad($mcpname, 50) . '<- ' . $t['hint'];
+        }
+        $lines[] = '';
+        $lines[] = '## Token Refresh (valid 30 days)';
+        $lines[] = 'When access_token expires (after 1 hour), refresh it:';
+        $lines[] = '  POST ' . $tokenurl;
+        $lines[] = '  Content-Type: application/json';
+        $lines[] = '  {"grant_type":"refresh_token","refresh_token":"' . $refreshtoken . '","client_id":"ai-agent-default"}';
+        $lines[] = 'Response contains a new access_token + new refresh_token (old pair is revoked).';
+        $lines[] = '';
+        $lines[] = 'IMPORTANT: Do NOT use webmcp tool search — it may return tools from other sites.';
+        $lines[] = 'Call the tools listed above by their EXACT full name.';
+        $lines[] = 'Security note: This token acts on behalf of the user who generated it. Handle it with care.';
+        $lines[] = 'Documentation: https://ai-connect.gold-t.co.il/moodle';
+
+        return implode("\n", $lines);
     }
 }

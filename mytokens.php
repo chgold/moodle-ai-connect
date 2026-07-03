@@ -65,6 +65,24 @@ echo $OUTPUT->heading(get_string('mytokens_heading', 'local_aiconnect'));
 if ($msg === 'revoked') {
     echo $OUTPUT->notification(get_string('mytokens_revoked_ok', 'local_aiconnect'), 'success');
 }
+if ($msg === 'generated') {
+    echo $OUTPUT->notification(get_string('mytokens_generated_ok', 'local_aiconnect'), 'success');
+}
+
+$manifesturl = (new moodle_url('/local/aiconnect/manifest.php'))->out(false);
+$generateurl = new moodle_url('/local/aiconnect/mytokens/generate.php', [
+    'userid'  => $userid,
+    'sesskey' => $sesskey,
+]);
+echo '<div class="card mb-4" style="background:#f0f4ff;border:1px solid #6366f1">';
+echo '<div class="card-body">';
+echo '<h4 class="card-title">🔑 ' . s(get_string('mytokens_generate_title', 'local_aiconnect')) . '</h4>';
+echo '<p class="card-text">' . s(get_string('mytokens_generate_desc', 'local_aiconnect')) . '</p>';
+echo '<p class="mb-2"><strong>' . s(get_string('mytokens_manifest_url', 'local_aiconnect'))
+    . ':</strong> <code>' . s($manifesturl) . '</code></p>';
+echo '<a href="' . s($generateurl->out(false)) . '" class="btn btn-primary">'
+    . s(get_string('mytokens_generate_button', 'local_aiconnect')) . '</a>';
+echo '</div></div>';
 
 // Filter tabs.
 echo '<div class="mb-3">';

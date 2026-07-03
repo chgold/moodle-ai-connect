@@ -65,3 +65,58 @@ function local_aiconnect_extend_navigation_user(\navigation_node $parentnode, \s
         new \pix_icon('i/key', '')
     );
 }
+
+/**
+ * Adds a top-level "AI Connect" navigation item to the global navigation tree.
+ *
+ * This hook is called by Moodle core when building the global navigation, making
+ * the link visible from every page for all logged-in (non-guest) users.
+ *
+ * @param \global_navigation $nav The global navigation tree.
+ * @return void
+ */
+function local_aiconnect_extend_navigation(\global_navigation $nav): void {
+
+    global $USER;
+
+    // Only show for authenticated, non-guest users.
+    if (!isloggedin() || isguestuser()) {
+        return;
+    }
+
+    $url = new \moodle_url('/local/aiconnect/mytokens.php', ['userid' => (int) $USER->id]);
+    $nav->add(
+        get_string('pluginname', 'local_aiconnect'),
+        $url,
+        \navigation_node::TYPE_CUSTOM,
+        null,
+        'local_aiconnect_main',
+        new \pix_icon('i/key', '')
+    );
+}
+
+/**
+ * Renders an "AI Connect" link in the page-wide navbar (top-right).
+ *
+ * Called by Moodle core (Boost theme) to allow plugins to inject top navbar items
+ * visible from every page for all authenticated users.
+ *
+ * @param \renderer_base $renderer
+ * @return string HTML output to be placed in the navbar
+ */
+function local_aiconnect_render_navbar_output(\renderer_base $renderer): string {
+    global $USER;
+
+    if (!isloggedin() || isguestuser()) {
+        return '';
+    }
+
+    $url = new \moodle_url('/local/aiconnect/mytokens.php', ['userid' => (int) $USER->id]);
+    $icon = '<i class="fa fa-key" aria-hidden="true"></i>';
+    $label = htmlspecialchars(get_string('pluginname', 'local_aiconnect'), ENT_QUOTES, 'UTF-8');
+
+    return '<div class="local-aiconnect-navbar nav-item">'
+         . '<a class="nav-link" href="' . $url->out() . '" title="' . $label . '">'
+         . $icon . ' <span class="d-none d-md-inline">' . $label . '</span>'
+         . '</a></div>';
+}

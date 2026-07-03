@@ -4,6 +4,14 @@ All notable changes to `local_aiconnect` are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 semantic versioning.
 
+## [2.2.0] — 2026-07-03
+
+### Added
+- **Prompt generator:** `generate_token` endpoint now returns a complete AI agent prompt with connection instructions, tool list, and token refresh details (Servio Protocol format).
+
+### Changed
+- **Servio Protocol:** Token prefixes aligned to unified standard (`mdl_` → `xfa_`, `mdlr_` → `xfr_`).
+
 ## [1.1.0] — 2026-05-10
 
 Production hardening release. Closes 12 audit findings.
