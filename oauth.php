@@ -36,7 +36,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
 }
 
 try {
-    $action = required_param('action', PARAM_ALPHA);
+    $action = required_param('action', PARAM_ALPHANUMEXT);
 
     // Per-IP rate limit on OAuth endpoints — token endpoint gets a higher
     // budget because clients legitimately retry token exchanges.
