@@ -165,15 +165,32 @@ class core_module extends module_base {
      * @return array Grade items.
      */
     protected function execute_getGrades(array $params, array $context = []): array {
-        $userid = (int) ($context['userid'] ?? 0);
+        global $CFG, $DB;
+        require_once($CFG->libdir . '/gradelib.php');
+
+        $userid   = (int) ($context['userid'] ?? 0);
         $courseid = $this->clean_required($params, 'courseid', PARAM_INT);
-        $grades = grade_get_course_grades($courseid, [$userid]);
-        $rows = is_object($grades) && isset($grades->grades) ? $grades->grades : ($grades[$userid] ?? []);
-        return array_values(array_map(static fn($g) => [
-            'itemname'  => $g->str_long_grade ?? '',
-            'grade'     => $g->grade ?? null,
-            'str_grade' => $g->str_grade ?? '',
-        ], $rows));
+
+        // Fetch all grade items for the course, then look up user grades.
+        $grade_items = \grade_item::fetch_all(['courseid' => $courseid, 'itemtype' => 'mod']);
+        if (!$grade_items) {
+            return [];
+        }
+
+        $rows = [];
+        foreach ($grade_items as $item) {
+            $grade_obj = \grade_grade::fetch(['itemid' => $item->id, 'userid' => $userid]);
+            $rows[] = [
+                'itemname'   => $item->get_name(),
+                'itemtype'   => $item->itemtype,
+                'itemmodule' => $item->itemmodule ?? '',
+                'grademax'   => (float) $item->grademax,
+                'grademin'   => (float) $item->grademin,
+                'grade'      => $grade_obj ? (float) $grade_obj->finalgrade : null,
+                'str_grade'  => $grade_obj ? $grade_obj->str_long_grade ?? '' : '',
+            ];
+        }
+        return $rows;
     }
 
     /**
