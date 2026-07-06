@@ -220,6 +220,20 @@ HTML;
     public function token(): void {
         global $DB;
 
+        // Support both application/x-www-form-urlencoded and application/json.
+        $contenttype = (string) ($_SERVER['CONTENT_TYPE'] ?? '');
+        if (stripos($contenttype, 'application/json') !== false) {
+            $raw = file_get_contents('php://input');
+            $body = json_decode((string) $raw, true);
+            if (is_array($body)) {
+                foreach ($body as $k => $v) {
+                    if (!isset($_POST[$k])) {
+                        $_POST[$k] = is_scalar($v) ? (string) $v : '';
+                    }
+                }
+            }
+        }
+
         $grant = required_param('grant_type', PARAM_ALPHANUMEXT);
 
         if ($grant === 'authorization_code') {
