@@ -123,8 +123,8 @@ class manifest_controller {
             'api_version'    => 'v1',
             'capabilities'   => ['tools' => true, 'resources' => false, 'prompts' => false],
             'server'         => [
-                'url'         => "$base/v1",
-                'description' => 'Base URL — tool endpoints at /v1/tools/{tool_name}',
+                'url'         => "$base/v1/tools",
+                'description' => 'Base URL — POST to {url}/{tool_name} with Bearer token',
             ],
             'auth'  => $auth,
             'tools' => $this->registry->get_all_tools('read write'),
