@@ -406,8 +406,8 @@ HTML;
         $sitekey  = preg_replace('/[^a-zA-Z0-9_-]/', '_', $sitemcp);
         $sitename = !empty($SITE->fullname) ? $SITE->fullname : $sitemcp;
 
-        $manifest = $base . '/local/aiconnect/manifest.php';
-        $tokenurl = $base . '/local/aiconnect/oauth.php?action=token';
+        $manifest = $base . '/api/aiconnect-manifest';
+        $tokenurl = $base . '/api/aiconnect-oauth';
 
         $readtools = [
             ['name' => 'moodle.getCourses',     'hint' => 'List available courses'],
