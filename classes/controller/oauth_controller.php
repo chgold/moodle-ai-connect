@@ -363,7 +363,7 @@ HTML;
         $context = \context_system::instance();
         require_capability('local/aiconnect:use', $context);
 
-        [$accesstoken, $refreshtoken] = $this->issue_tokens('ai-agent-default', (int) $USER->id, 'read write', 'generate');
+        [$accesstoken, $refreshtoken] = $this->issue_tokens('claude', (int) $USER->id, 'read write', 'generate');
 
         echo json_encode([
             'access_token'  => $accesstoken,
@@ -390,7 +390,7 @@ HTML;
         $path     = rtrim($parsed['path'] ?? '', '/');
         $sitemcp  = $path !== '' ? $host . $path : $host;
         $sitekey  = preg_replace('/[^a-zA-Z0-9_-]/', '_', $sitemcp);
-        $sitename = $SITE->fullname ?? 'Moodle LMS';
+        $sitename = !empty($SITE->fullname) ? $SITE->fullname : $sitemcp;
 
         $manifest = $base . '/local/aiconnect/manifest.php';
         $tokenurl = $base . '/local/aiconnect/oauth.php?action=token';
