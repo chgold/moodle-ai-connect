@@ -426,7 +426,7 @@ HTML;
         $lines[] = 'When access_token expires (after 1 hour), refresh it:';
         $lines[] = '  POST ' . $tokenurl;
         $lines[] = '  Content-Type: application/json';
-        $lines[] = '  {"grant_type":"refresh_token","refresh_token":"' . $refreshtoken . '","client_id":"ai-agent-default"}';
+        $lines[] = '  {"grant_type":"refresh_token","refresh_token":"' . $refreshtoken . '","client_id":"claude"}';
         $lines[] = 'Response contains a new access_token + new refresh_token (old pair is revoked).';
         $lines[] = '';
         $lines[] = 'IMPORTANT: Do NOT use webmcp tool search — it may return tools from other sites.';
