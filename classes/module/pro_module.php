@@ -144,19 +144,76 @@ class pro_module extends module_base {
      * @return array Created assignment summary.
      */
     protected function execute_createAssignment(array $params, array $context = []): array {
-        global $DB;
+        global $DB, $CFG;
+        require_once($CFG->dirroot . '/course/lib.php');
+
         $courseid = $this->clean_required($params, 'courseid', PARAM_INT);
         $name     = $this->clean_required($params, 'name', PARAM_TEXT);
         $intro    = $this->clean_optional($params, 'intro', PARAM_CLEANHTML, '');
 
-        $id = $DB->insert_record('assign', (object) [
-            'course'       => $courseid,
-            'name'         => $name,
-            'intro'        => $intro,
-            'introformat'  => FORMAT_HTML,
-            'timemodified' => time(),
-        ]);
-        return ['id' => (int) $id, 'name' => $name, 'courseid' => $courseid];
+        // Verify course exists (throws on failure).
+        $course = get_course($courseid);
+
+        // Look up the 'assign' module row so we know its id.
+        $module = $DB->get_record('modules', ['name' => 'assign'], '*', MUST_EXIST);
+
+        $transaction = $DB->start_delegated_transaction();
+
+        try {
+            // 1. Insert the assign instance.
+            $assignid = $DB->insert_record('assign', (object) [
+                'course'       => $courseid,
+                'name'         => $name,
+                'intro'        => $intro,
+                'introformat'  => FORMAT_HTML,
+                'timemodified' => time(),
+            ]);
+
+            // 2. Insert the course_module row bound to this assign instance.
+            $cm = (object) [
+                'course'              => $courseid,
+                'module'              => $module->id,
+                'instance'            => $assignid,
+                'section'             => 0,
+                'idnumber'            => '',
+                'added'               => time(),
+                'score'               => 0,
+                'indent'              => 0,
+                'visible'             => 1,
+                'visibleoncoursepage' => 1,
+                'visibleold'          => 1,
+                'groupmode'           => 0,
+                'groupingid'          => 0,
+                'completion'          => 0,
+                'completionview'      => 0,
+                'completionexpected'  => 0,
+                'showdescription'     => 0,
+                'availability'        => null,
+                'deletioninprogress'  => 0,
+            ];
+            $cmid = $DB->insert_record('course_modules', $cm);
+
+            // 3. Add the cm to section 0 (general/top section). Creates one if missing.
+            course_add_cm_to_section($course, $cmid, 0);
+
+            // 4. Create module context so capability checks and later save_grade() work.
+            \context_module::instance($cmid);
+
+            // 5. Rebuild course cache so the new module is discoverable.
+            rebuild_course_cache($courseid, true);
+
+            $transaction->allow_commit();
+        } catch (\Throwable $e) {
+            $transaction->rollback($e);
+            throw $e;
+        }
+
+        return [
+            'id'       => (int) $assignid,
+            'cmid'     => (int) $cmid,
+            'name'     => $name,
+            'courseid' => $courseid,
+        ];
     }
 
     /**
