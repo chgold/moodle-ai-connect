@@ -222,6 +222,9 @@ class pro_module extends module_base {
      * @return array Update result.
      */
     protected function execute_updateCourse(array $params, array $context = []): array {
+        global $CFG;
+        require_once($CFG->dirroot . '/course/lib.php');
+
         $courseid = $this->clean_required($params, 'courseid', PARAM_INT);
         $course = get_course($courseid);
         if (array_key_exists('fullname', $params)) {
