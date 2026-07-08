@@ -421,7 +421,7 @@ HTML;
         $lines   = [];
         $lines[] = 'You have access to ' . $sitename . ' via AI Connect.';
         $lines[] = '';
-        $lines[] = '## MCP (Recommended — Claude Desktop)';
+        $lines[] = '## Add site (goldnat.ai recommended)';
         $lines[] = 'Call servio_addSite (or webmcp_addSite for backward compat) with these parameters:';
         $lines[] = '  name:          "' . $sitemcp . '"';
         $lines[] = '  manifest_url:  "' . $manifest . '"';
@@ -447,7 +447,7 @@ HTML;
         $lines[] = 'IMPORTANT: Do NOT use webmcp tool search — it may return tools from other sites.';
         $lines[] = 'Call the tools listed above by their EXACT full name.';
         $lines[] = 'Security note: This token acts on behalf of the user who generated it. Handle it with care.';
-        $lines[] = 'Documentation: https://ai-connect.gold-t.co.il/moodle';
+        $lines[] = 'Documentation: https://plugins.goldnat.ai/moodle/guide';
 
         return implode("\n", $lines);
     }
