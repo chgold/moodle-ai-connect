@@ -256,9 +256,15 @@ class pro_module extends module_base {
      * @return array Send result.
      */
     protected function execute_sendMessage(array $params, array $context = []): array {
+        global $DB;
+
         $userid   = (int) ($context['userid'] ?? 0);
         $touserid = $this->clean_required($params, 'touserid', PARAM_INT);
         $text     = $this->clean_required($params, 'message', PARAM_TEXT);
+
+        if (!$DB->record_exists('user', ['id' => $touserid, 'deleted' => 0])) {
+            return ['error' => 'tool_error', 'message' => 'Recipient user not found'];
+        }
 
         $msg = new \core\message\message();
         $msg->component         = 'moodle';
