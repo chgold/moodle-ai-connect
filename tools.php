@@ -61,6 +61,13 @@ try {
     $auth = auth_middleware::require_bearer();
     auth_middleware::check_rate_limit($auth['token']);
 
+    // Establish the token owner as the active Moodle user. NO_MOODLE_COOKIES
+    // leaves $USER as guest (id 0), so any tool that calls a Moodle core API
+    // with a built-in require_capability() check (e.g. assign::save_grade →
+    // mod/assign:grade) would be evaluated against the guest user and fail
+    // with "you do not have permission", even for an admin token holder.
+    \core\session\manager::set_user(get_complete_user_data('id', $auth['userid']));
+
     $tool = required_param('tool', PARAM_RAW_TRIMMED);
     $controller = new tools_controller();
 

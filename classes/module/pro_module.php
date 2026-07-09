@@ -236,8 +236,13 @@ class pro_module extends module_base {
         }
         $ctx = \context_module::instance($cm->id);
         $assign = new \assign($ctx, $cm, $cm->course);
+        // attemptnumber = -1 tells save_grade() to target the student's latest
+        // attempt (creating a first submission if none exists). Omitting it
+        // leaves $data->attemptnumber unset, so get_user_submission() inserts a
+        // NULL attemptnumber and the write fails under STRICT_TRANS_TABLES.
         $assign->save_grade($studentid, (object) [
             'grade' => $grade,
+            'attemptnumber' => -1,
             'assignfeedbackcomments_editor' => ['text' => '', 'format' => FORMAT_HTML],
         ]);
         return ['graded' => true, 'grade' => $grade, 'userid' => $studentid];
