@@ -50,10 +50,11 @@ final class manifest_test extends \advanced_testcase {
     }
 
     /**
-     * Manifest advertises 12 tools (6 free + 6 pro).
+     * Under Pro edition, the manifest advertises 12 tools (6 free + 6 pro).
      */
     public function test_manifest_lists_twelve_tools(): void {
         $this->resetAfterTest();
+        set_config('edition', 'pro', 'local_aiconnect');
 
         $manifest = (new manifest_controller())->get();
 

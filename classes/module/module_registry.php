@@ -17,10 +17,11 @@
 /**
  * Tool module registry — the single dispatcher for AI Connect tools.
  *
- * Bundles {@see core_module} and {@see pro_module} by default. Third-party
- * plugins can register additional {@see module_base} subclasses via
- * {@see module_registry::on_init()}; the callback fires when the registry is
- * instantiated.
+ * Registers {@see core_module} always, and loads the separate Pro plugin's
+ * module via {@see pro_loader} only when the site edition grants Pro.
+ * Third-party plugins can register additional {@see module_base} subclasses
+ * via {@see module_registry::on_init()}; the callback fires when the registry
+ * is instantiated.
  *
  * @package    local_aiconnect
  * @copyright  2026 Goldt <https://github.com/chgold>
@@ -51,7 +52,7 @@ class module_registry {
      */
     public function __construct() {
         $this->register(new core_module());
-        $this->register(new pro_module());
+        pro_loader::load($this);
 
         self::run_init_callbacks($this);
     }

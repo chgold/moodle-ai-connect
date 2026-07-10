@@ -48,6 +48,7 @@ final class tools_test extends \advanced_testcase {
      */
     public function test_pro_tool_blocked_without_write_scope(): void {
         $this->resetAfterTest();
+        set_config('edition', 'pro', 'local_aiconnect');
 
         $result = (new tools_controller())->execute('moodle.enrollUser',
             ['userid' => 1, 'courseid' => 1], 0, 'read');
@@ -113,6 +114,7 @@ final class tools_test extends \advanced_testcase {
      */
     public function test_enroll_user_with_write_scope(): void {
         $this->resetAfterTest();
+        set_config('edition', 'pro', 'local_aiconnect');
         $gen = $this->getDataGenerator();
 
         $course = $gen->create_course();

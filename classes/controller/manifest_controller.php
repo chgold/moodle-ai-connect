@@ -103,6 +103,7 @@ class manifest_controller {
             'authorization_url'     => "$base/oauth.php?action=authorize",
             'token_url'             => "$base/oauth.php?action=token",
             'revocation_url'        => "$base/oauth.php?action=revoke",
+            'token_endpoint_auth_methods_supported' => ['client_secret_post'],
             'scopes'                => [
                 'read'   => 'Read courses, grades, assignments',
                 'write'  => 'Manage enrollments, grades (Pro)',

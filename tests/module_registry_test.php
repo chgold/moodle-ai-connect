@@ -74,11 +74,12 @@ final class module_registry_test extends \advanced_testcase {
     }
 
     /**
-     * Default registry bundles core + pro = 12 tools.
+     * With Pro edition, the registry lists core + pro = 12 tools.
      */
-    public function test_default_registry_lists_twelve_tools(): void {
+    public function test_pro_edition_registry_lists_twelve_tools(): void {
         $this->resetAfterTest();
         module_registry::reset_callbacks();
+        set_config('edition', 'pro', 'local_aiconnect');
 
         $registry = new module_registry();
         $tools = $registry->get_all_tools('read write');
@@ -90,11 +91,27 @@ final class module_registry_test extends \advanced_testcase {
     }
 
     /**
-     * Read-only scope hides write tools.
+     * With Free edition, the separate Pro plugin is not loaded — 6 core tools.
+     */
+    public function test_free_edition_excludes_pro_tools(): void {
+        $this->resetAfterTest();
+        module_registry::reset_callbacks();
+        set_config('edition', 'free', 'local_aiconnect');
+
+        $registry = new module_registry();
+        $names = array_column($registry->get_all_tools('read write'), 'name');
+
+        $this->assertContains('moodle.getCourses', $names);
+        $this->assertNotContains('moodle.enrollUser', $names);
+    }
+
+    /**
+     * Read-only scope hides write tools even under Pro edition.
      */
     public function test_read_scope_hides_pro_tools(): void {
         $this->resetAfterTest();
         module_registry::reset_callbacks();
+        set_config('edition', 'pro', 'local_aiconnect');
 
         $registry = new module_registry();
         $names = array_column($registry->get_all_tools('read'), 'name');
