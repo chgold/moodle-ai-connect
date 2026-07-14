@@ -72,6 +72,9 @@ class pro_loader {
             return strtolower($env);
         }
         $cfg = get_config('local_aiconnect', 'edition');
-        return is_string($cfg) && $cfg !== '' ? strtolower($cfg) : 'free';
+        if (is_string($cfg) && $cfg !== '') {
+            return strtolower($cfg);
+        }
+        return license_client::resolve_edition();
     }
 }
