@@ -34,6 +34,9 @@ class license_client {
     /** @var string Default license validation endpoint. */
     private const API_URL = 'https://goldnat.ai/api/licenses/public/validate';
 
+    /** @var string Plugin slug the license must match to unlock this plugin. */
+    private const EXPECTED_SLUG = 'moodle-teacher-ai-connect';
+
     /** @var string Config key holding the cached status JSON. */
     private const CACHE_KEY = 'license_status';
 
@@ -42,6 +45,24 @@ class license_client {
 
     /** @var string[] Statuses that grant Pro. */
     private const VALID = ['valid', 'valid_no_updates'];
+
+    /**
+     * Require matching plugin_slug so another plugin's license can't unlock this
+     * one. error_cached is the fail-open network-blip verdict (no slug) -> honored.
+     *
+     * @param array|null $data Decoded validation response or cache.
+     * @return bool Whether Pro is granted.
+     */
+    private static function grants(?array $data): bool {
+        if ($data === null) {
+            return false;
+        }
+        if (($data['status'] ?? '') === 'error_cached') {
+            return true;
+        }
+        return in_array($data['status'] ?? '', self::VALID, true)
+            && ($data['plugin_slug'] ?? '') === self::EXPECTED_SLUG;
+    }
 
     /**
      * Resolve the effective edition from a license key.
@@ -58,21 +79,21 @@ class license_client {
         $cached = self::read_cache();
         if ($cached !== null && isset($cached['checked_at'])
                 && (time() - (int)$cached['checked_at']) < self::CACHE_TTL) {
-            return in_array($cached['status'] ?? '', self::VALID, true) ? 'pro' : 'free';
+            return self::grants($cached) ? 'pro' : 'free';
         }
 
         $resp = self::call_server($key);
         if ($resp === null) {
             // Fail-open: never hard-block a paying customer on a network blip (mirrors XenForo).
             if ($cached !== null) {
-                return in_array($cached['status'] ?? '', self::VALID, true) ? 'pro' : 'free';
+                return self::grants($cached) ? 'pro' : 'free';
             }
             self::write_cache(['valid' => true, 'status' => 'error_cached']);
             return 'pro';
         }
 
         self::write_cache($resp);
-        return in_array($resp['status'] ?? '', self::VALID, true) ? 'pro' : 'free';
+        return self::grants($resp) ? 'pro' : 'free';
     }
 
     /**
