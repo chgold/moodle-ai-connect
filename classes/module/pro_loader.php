@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Edition-gated loader for the optional Pro tool-set plugin.
+ * Edition-gated loader for the optional Pro tool-set plugins.
  *
  * @package    local_aiconnect
  * @copyright  2026 Goldt <https://github.com/chgold>
@@ -27,35 +27,49 @@ namespace local_aiconnect\module;
 defined('MOODLE_INTERNAL') || die();
 
 /**
- * Discovers and registers the separate Pro plugin's tool module.
+ * Discovers and registers separate Pro plugins' tool modules.
  *
- * Mirrors the WordPress/XenForo/Ghost model: the Pro tools live in a separate
- * plugin (local_aiconnectteacher) and are loaded into the core registry only
- * when the site edition grants Pro AND that plugin is installed. If either is
- * false, no Pro tools are registered — they never appear in the manifest and
- * cannot be executed.
+ * Mirrors the WordPress/XenForo/Ghost model: Pro tool-sets live in separate
+ * plugins (local_aiconnectteacher, local_aiconnectstudent, ...) and are loaded
+ * into the core registry only when the site edition grants Pro AND each such
+ * plugin is installed. Multi-Pro: any subset of known Pro plugins can be
+ * installed side-by-side; only those with class_exists() succeed load.
  */
 class pro_loader {
 
-    /** @var string Fully-qualified class of the separate Pro plugin's module. */
-    private const PRO_MODULE_CLASS = '\\local_aiconnectteacher\\module\\pro_module';
+    /**
+     * Known Pro plugin module classes, in load order.
+     *
+     * Adding a new sibling Pro plugin means adding one entry here — the class
+     * only registers if edition=pro AND the plugin is installed (class_exists).
+     * Absent plugins are skipped silently — this is the multi-Pro contract.
+     *
+     * @var string[]
+     */
+    private const PRO_MODULE_CLASSES = [
+        '\\local_aiconnectteacher\\module\\pro_module',
+        '\\local_aiconnectstudent\\module\\pro_module',
+    ];
 
     /**
-     * Register the Pro module into the given registry when the edition allows.
+     * Register every installed Pro module into the given registry.
      *
      * @param module_registry $registry Registry being built.
-     * @return bool True if the Pro module was registered, false if gated out.
+     * @return int Count of Pro modules actually registered.
      */
-    public static function load(module_registry $registry): bool {
+    public static function load(module_registry $registry): int {
         if (self::edition() !== 'pro') {
-            return false;
+            return 0;
         }
-        if (!class_exists(self::PRO_MODULE_CLASS)) {
-            return false;
+        $loaded = 0;
+        foreach (self::PRO_MODULE_CLASSES as $class) {
+            if (!class_exists($class)) {
+                continue;
+            }
+            $registry->register(new $class());
+            $loaded++;
         }
-        $class = self::PRO_MODULE_CLASS;
-        $registry->register(new $class());
-        return true;
+        return $loaded;
     }
 
     /**
