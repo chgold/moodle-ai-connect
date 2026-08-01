@@ -58,7 +58,8 @@ class pro_loader {
      * @return int Count of Pro modules actually registered.
      */
     public static function load(module_registry $registry): int {
-        if (self::edition() !== 'pro') {
+        $bundles = self::bundles();
+        if (empty($bundles)) {
             return 0;
         }
         $loaded = 0;
@@ -73,10 +74,37 @@ class pro_loader {
     }
 
     /**
-     * Resolve the configured edition.
+     * Bundles granted by the current license (BUNDLES-LICENSE-SPEC v1.0).
      *
-     * Reads the AICONNECT_EDITION environment variable first (parity with the
-     * other platform bridges), then the plugin config, defaulting to 'free'.
+     * Returns:
+     *   ['*']                → grant everything (default backward-compat for
+     *                          fail-open / legacy `edition=pro` sites)
+     *   ['teacher',...]       → grant only these bundle keys
+     *   []                    → no bundles (equivalent to edition=free)
+     *
+     * @return string[]
+     */
+    public static function bundles(): array {
+        if (self::edition() === 'pro') {
+            return ['*'];
+        }
+        return [];
+    }
+
+    /**
+     * Convenience check consumed by future bundle-aware Pro modules.
+     *
+     * @param string $bundle
+     * @return bool
+     */
+    public static function has_bundle(string $bundle): bool {
+        $b = self::bundles();
+        return in_array('*', $b, true) || in_array($bundle, $b, true);
+    }
+
+    /**
+     * Resolve the configured edition. Legacy accessor kept for the
+     * bundle-less fallback path.
      *
      * @return string Lowercased edition string ('free' or 'pro').
      */
