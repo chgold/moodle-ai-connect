@@ -38,61 +38,101 @@ defined('MOODLE_INTERNAL') || die();
 class pro_loader {
 
     /**
-     * Known Pro plugin module classes, in load order.
+     * Known Pro plugin module descriptors, in load order.
      *
-     * Adding a new sibling Pro plugin means adding one entry here — the class
-     * only registers if edition=pro AND the plugin is installed (class_exists).
-     * Absent plugins are skipped silently — this is the multi-Pro contract.
+     * Each entry:
+     *   class     — fully-qualified pro_module class name
+     *   component — Moodle component (holds the license_key config option)
+     *   slug      — Servio plugin slug the license server must match
      *
-     * @var string[]
+     * Adding a new sibling Pro plugin means adding one entry here. Each Pro
+     * loads only if BOTH the class exists (plugin installed) AND either the
+     * environment override OR its own license is valid.
+     *
+     * @var array<int,array{class:string,component:string,slug:string}>
      */
-    private const PRO_MODULE_CLASSES = [
-        '\\local_aiconnectteacher\\module\\pro_module',
-        '\\local_aiconnectstudent\\module\\pro_module',
+    private const PRO_MODULES = [
+        [
+            'class'     => '\\local_aiconnectteacher\\module\\pro_module',
+            'component' => 'local_aiconnectteacher',
+            'slug'      => 'moodle-teacher-ai-connect',
+        ],
+        [
+            'class'     => '\\local_aiconnectstudent\\module\\pro_module',
+            'component' => 'local_aiconnectstudent',
+            'slug'      => 'moodle-student-ai-connect',
+        ],
+        [
+            'class'     => '\\local_aiconnectadmin\\module\\pro_module',
+            'component' => 'local_aiconnectadmin',
+            'slug'      => 'moodle-admin-ai-connect',
+        ],
     ];
 
     /**
-     * Register every installed Pro module into the given registry.
+     * Register every installed + licensed Pro module into the given registry.
+     *
+     * Env override (AICONNECT_EDITION=pro) unlocks all Pro modules — used for
+     * dev / test / CI where a real license is not practical.
      *
      * @param module_registry $registry Registry being built.
      * @return int Count of Pro modules actually registered.
      */
     public static function load(module_registry $registry): int {
-        $bundles = self::bundles();
-        if (empty($bundles)) {
-            return 0;
-        }
+        $env_pro = self::env_pro();
         $loaded = 0;
-        foreach (self::PRO_MODULE_CLASSES as $class) {
-            if (!class_exists($class)) {
+        foreach (self::PRO_MODULES as $mod) {
+            if (!class_exists($mod['class'])) {
                 continue;
             }
-            $registry->register(new $class());
+            if (!$env_pro && !license_client::is_valid_for($mod['component'], $mod['slug'])) {
+                continue;
+            }
+            $registry->register(new $mod['class']());
             $loaded++;
         }
         return $loaded;
     }
 
     /**
-     * Bundles granted by the current license (BUNDLES-LICENSE-SPEC v1.0).
+     * Admin/dev override. Either source unlocks all Pro modules regardless
+     * of license state — used for local dev, CI, and test sites without a
+     * real license. Env takes precedence over the site-config value.
      *
-     * Returns:
-     *   ['*']                → grant everything (default backward-compat for
-     *                          fail-open / legacy `edition=pro` sites)
-     *   ['teacher',...]       → grant only these bundle keys
-     *   []                    → no bundles (equivalent to edition=free)
+     * @return bool True when the override grants Pro.
+     */
+    private static function env_pro(): bool {
+        $env = getenv('AICONNECT_EDITION');
+        if (is_string($env) && strtolower($env) === 'pro') {
+            return true;
+        }
+        $cfg = get_config('local_aiconnect', 'edition');
+        return is_string($cfg) && strtolower($cfg) === 'pro';
+    }
+
+    /**
+     * Bundles granted by the current license, kept for backward compatibility.
+     *
+     * Returns ['*'] under the env override, otherwise walks the per-plugin
+     * license state and returns the granted slugs.
      *
      * @return string[]
      */
     public static function bundles(): array {
-        if (self::edition() === 'pro') {
+        if (self::env_pro()) {
             return ['*'];
         }
-        return [];
+        $granted = [];
+        foreach (self::PRO_MODULES as $mod) {
+            if (license_client::is_valid_for($mod['component'], $mod['slug'])) {
+                $granted[] = $mod['slug'];
+            }
+        }
+        return $granted;
     }
 
     /**
-     * Convenience check consumed by future bundle-aware Pro modules.
+     * Convenience check consumed by bundle-aware Pro modules.
      *
      * @param string $bundle
      * @return bool
@@ -100,23 +140,5 @@ class pro_loader {
     public static function has_bundle(string $bundle): bool {
         $b = self::bundles();
         return in_array('*', $b, true) || in_array($bundle, $b, true);
-    }
-
-    /**
-     * Resolve the configured edition. Legacy accessor kept for the
-     * bundle-less fallback path.
-     *
-     * @return string Lowercased edition string ('free' or 'pro').
-     */
-    private static function edition(): string {
-        $env = getenv('AICONNECT_EDITION');
-        if (is_string($env) && $env !== '') {
-            return strtolower($env);
-        }
-        $cfg = get_config('local_aiconnect', 'edition');
-        if (is_string($cfg) && $cfg !== '') {
-            return strtolower($cfg);
-        }
-        return license_client::resolve_edition();
     }
 }

@@ -39,6 +39,18 @@ if ($docroot !== '' && is_file($docroot . '/config.php')) {
     return;
 }
 
+if ($docroot !== '' && !empty($_SERVER['SCRIPT_NAME'])) {
+    $parts = explode('/', trim($_SERVER['SCRIPT_NAME'], '/'));
+    while (count($parts) > 0) {
+        array_pop($parts);
+        $candidate = $docroot . '/' . implode('/', $parts) . '/config.php';
+        if (is_file($candidate)) {
+            require_once($candidate);
+            return;
+        }
+    }
+}
+
 if (php_sapi_name() === 'cli') {
     $cliroot = getenv('MOODLE_ROOT');
     if ($cliroot && is_file($cliroot . '/config.php')) {

@@ -77,6 +77,58 @@ $sitenamemcp = $pathpart !== '' ? $hostname . $pathpart : $hostname;
 $sitekey     = preg_replace('/[^a-zA-Z0-9_-]/', '_', $sitenamemcp);
 $sitename    = format_string($SITE->fullname) ?: 'Moodle Site';
 
+/**
+ * Summarise a tool's parameters from its input schema, for the agent prompt.
+ *
+ * @param array $tool        Tool definition carrying an input_schema.
+ * @param int   $maxoptional Cap on optional params before summarising the rest.
+ * @return string
+ */
+function local_aiconnect_build_schema_hint(array $tool, int $maxoptional = 3): string {
+    $schema = $tool['input_schema'] ?? [];
+    $properties = $schema['properties'] ?? [];
+    if (is_object($properties)) {
+        $properties = (array) $properties;
+    }
+    if (!is_array($properties) || empty($properties)) {
+        return 'no arguments';
+    }
+
+    $required = array_flip((array) ($schema['required'] ?? []));
+    $req = [];
+    $opt = [];
+
+    foreach ($properties as $name => $spec) {
+        $type = is_array($spec) ? ($spec['type'] ?? 'string') : 'string';
+        $part = $name . '=' . $type;
+
+        if (isset($required[$name])) {
+            $req[] = $part;
+            continue;
+        }
+        if (is_array($spec) && isset($spec['default'])) {
+            $default = $spec['default'];
+            $part .= ' (default ' . (is_bool($default) ? ($default ? 'true' : 'false') : (string) $default) . ')';
+        }
+        $opt[] = $part;
+    }
+
+    $parts = $req;
+    if (!empty($req)) {
+        $parts[count($parts) - 1] .= ' [required]';
+    }
+
+    $shown = array_slice($opt, 0, $maxoptional);
+    $parts = array_merge($parts, $shown);
+
+    $hint = implode(', ', $parts);
+    if (count($opt) > count($shown)) {
+        $hint .= ', +' . (count($opt) - count($shown)) . ' more';
+    }
+
+    return $hint;
+}
+
 $readtools = [
     ['name' => 'moodle.getCourses',      'params' => 'limit=10',              'hint' => 'List courses the user is enrolled in'],
     ['name' => 'moodle.getCourse',       'params' => 'course_id=COURSE_ID',   'hint' => 'Get course details'],
@@ -104,7 +156,30 @@ $lines[] = "";
 $lines[] = "IMPORTANT: Paste BOTH token and refresh_token — otherwise the connection will stop working after 1 hour.";
 $lines[] = "";
 $lines[] = "After adding the site, call these tools by EXACT name (do not search — use directly):";
+
+// The tables above are hand-maintained and cover only a fraction of the
+// registered tools, so the rest printed as bare names. Derive from the registry.
+$curatedhints = [];
 foreach (array_merge($readtools, $writetools) as $t) {
+    $curatedhints[$t['name']] = $t['hint'];
+}
+
+$listedtools = [];
+try {
+    $registry = new \local_aiconnect\module\module_registry();
+    foreach ($registry->get_all_tools('read write delete admin') as $tool) {
+        $listedtools[] = [
+            'name' => $tool['name'],
+            'hint' => $curatedhints[$tool['name']] ?? local_aiconnect_build_schema_hint($tool),
+        ];
+    }
+} catch (\Throwable $e) {
+    foreach (array_merge($readtools, $writetools) as $t) {
+        $listedtools[] = ['name' => $t['name'], 'hint' => $t['hint']];
+    }
+}
+
+foreach ($listedtools as $t) {
     $mcpname = $sitekey . '_' . str_replace('.', '_', $t['name']);
     $lines[] = '  ' . str_pad($mcpname, 50) . '<- ' . $t['hint'];
 }

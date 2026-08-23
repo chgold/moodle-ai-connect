@@ -28,32 +28,35 @@ defined('MOODLE_INTERNAL') || die();
 
 /**
  * Resolves the Pro edition from a verified license key.
+ *
+ * Per-plugin validation: each Pro sibling plugin (teacher/student/admin) has
+ * its own license_key stored under its own component. is_valid_for() reads
+ * the plugin-scoped key + caches the slug-matched status per plugin.
  */
 class license_client {
 
     /** @var string Default license validation endpoint. */
     private const API_URL = 'https://goldnat.ai/api/licenses/public/validate';
 
-    /** @var string Plugin slug the license must match to unlock this plugin. */
-    private const EXPECTED_SLUG = 'moodle-teacher-ai-connect';
-
-    /** @var string Config key holding the cached status JSON. */
+    /** @var string Config key holding the cached status JSON (per plugin). */
     private const CACHE_KEY = 'license_status';
 
-    /** @var int Cache lifetime in seconds (7 days). */
-    private const CACHE_TTL = 604800;
+    /** @var int Cache lifetime in seconds (24h — aligned with refund policy). */
+    private const CACHE_TTL = 86400;
 
     /** @var string[] Statuses that grant Pro. */
     private const VALID = ['valid', 'valid_no_updates'];
 
     /**
-     * Require matching plugin_slug so another plugin's license can't unlock this
-     * one. error_cached is the fail-open network-blip verdict (no slug) -> honored.
+     * Slug-scoped grant check. Requires matching plugin_slug so another
+     * plugin's license can't unlock this one. error_cached is the fail-open
+     * network-blip verdict (no slug present) → honored.
      *
      * @param array|null $data Decoded validation response or cache.
-     * @return bool Whether Pro is granted.
+     * @param string $expected_slug Slug this plugin expects on the response.
+     * @return bool Whether Pro is granted for the expected slug.
      */
-    private static function grants(?array $data): bool {
+    private static function grants(?array $data, string $expected_slug): bool {
         if ($data === null) {
             return false;
         }
@@ -61,46 +64,59 @@ class license_client {
             return true;
         }
         return in_array($data['status'] ?? '', self::VALID, true)
-            && ($data['plugin_slug'] ?? '') === self::EXPECTED_SLUG;
+            && ($data['plugin_slug'] ?? '') === $expected_slug;
     }
 
     /**
-     * Resolve the effective edition from a license key.
+     * Whether the given Pro plugin has a valid license.
      *
-     * @return string 'pro' when a valid (or fail-open cached) license exists, else 'free'.
+     * @param string $component Moodle component name (e.g. 'local_aiconnectteacher').
+     * @param string $expected_slug Servio slug this plugin expects (e.g. 'moodle-teacher-ai-connect').
+     * @return bool True when a valid (or fail-open cached) license exists.
      */
-    public static function resolve_edition(): string {
+    public static function is_valid_for(string $component, string $expected_slug): bool {
         $key = trim((string)(getenv('AICONNECT_LICENSE_KEY')
-            ?: get_config('local_aiconnect', 'license_key')));
+            ?: get_config($component, 'license_key')));
         if ($key === '') {
-            return 'free';
+            return false;
         }
 
-        $cached = self::read_cache();
+        $cached = self::read_cache($component);
         if ($cached !== null && isset($cached['checked_at'])
                 && (time() - (int)$cached['checked_at']) < self::CACHE_TTL) {
-            return self::grants($cached) ? 'pro' : 'free';
+            return self::grants($cached, $expected_slug);
         }
 
         $resp = self::call_server($key);
         if ($resp === null) {
-            // Fail-open: never hard-block a paying customer on a network blip (mirrors XenForo).
+            // Fail-open on network failure — never hard-block paying customers.
             if ($cached !== null) {
-                return self::grants($cached) ? 'pro' : 'free';
+                return self::grants($cached, $expected_slug);
             }
-            self::write_cache(['valid' => true, 'status' => 'error_cached']);
-            return 'pro';
+            self::write_cache($component, ['valid' => true, 'status' => 'error_cached']);
+            return true;
         }
 
-        self::write_cache($resp);
-        return self::grants($resp) ? 'pro' : 'free';
+        self::write_cache($component, $resp);
+        return self::grants($resp, $expected_slug);
     }
 
     /**
+     * Legacy accessor kept for backward-compatible callers. Uses the teacher
+     * slug as the historical default. New callers must use is_valid_for().
+     *
+     * @return string 'pro' or 'free'.
+     */
+    public static function resolve_edition(): string {
+        return self::is_valid_for('local_aiconnect', 'moodle-teacher-ai-connect') ? 'pro' : 'free';
+    }
+
+    /**
+     * @param string $component Moodle component the cache belongs to.
      * @return array|null Decoded cache or null when absent.
      */
-    private static function read_cache(): ?array {
-        $raw = get_config('local_aiconnect', self::CACHE_KEY);
+    private static function read_cache(string $component): ?array {
+        $raw = get_config($component, self::CACHE_KEY);
         if (!is_string($raw) || $raw === '') {
             return null;
         }
@@ -109,11 +125,12 @@ class license_client {
     }
 
     /**
+     * @param string $component Moodle component to scope the cache to.
      * @param array $status Status payload to persist.
      */
-    private static function write_cache(array $status): void {
+    private static function write_cache(string $component, array $status): void {
         $status['checked_at'] = time();
-        set_config(self::CACHE_KEY, json_encode($status), 'local_aiconnect');
+        set_config(self::CACHE_KEY, json_encode($status), $component);
     }
 
     /**

@@ -174,4 +174,21 @@ abstract class module_base {
         }
         return clean_param($params[$key], $type);
     }
+
+    /**
+     * Build a friendly error response for a tool execute_XXX() method.
+     *
+     * Returns an array in the shape the tools_controller wraps as a 400:
+     *   ['error' => 'error_key', 'message' => 'user-facing text', 'context' => [...]]
+     *
+     * @param string $key     Machine-readable error key (snake_case)
+     * @param string $message User-facing message
+     * @param array  $context Optional extra context fields (echoed back to the caller)
+     * @return array
+     */
+    protected function error(string $key, string $message, array $context = []): array {
+        $out = ['error' => $key, 'message' => $message];
+        if ($context) { $out['context'] = $context; }
+        return $out;
+    }
 }
