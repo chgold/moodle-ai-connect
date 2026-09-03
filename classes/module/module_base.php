@@ -63,12 +63,43 @@ abstract class module_base {
     protected function register_tool(string $name, array $config): void {
         $fullname = $this->module_name . '.' . $name;
         $this->tools[$name] = [
-            'name'           => $fullname,
-            'description'    => $config['description'] ?? '',
-            'input_schema'   => $config['input_schema'] ?? ['type' => 'object', 'properties' => new \stdClass()],
-            'required_scope' => $config['required_scope'] ?? 'read',
-            'pro_only'       => $config['pro_only'] ?? false,
+            'name'                => $fullname,
+            'description'         => $config['description'] ?? '',
+            'input_schema'        => $config['input_schema'] ?? ['type' => 'object', 'properties' => new \stdClass()],
+            'required_scope'      => $config['required_scope'] ?? 'read',
+            'pro_only'            => $config['pro_only'] ?? false,
+            'requires_capability' => $config['requires_capability'] ?? null,
         ];
+    }
+
+    /**
+     * Capability gate for the manifest (Protocol: Capability-Aware Manifest v1, #803).
+     *
+     * A tool that declares requires_capability (e.g. mod_quiz, mod_bigbluebuttonbn,
+     * mod_hvp) is only exposed when the underlying Moodle plugin is installed AND
+     * enabled on this site. Core tools (null key) are always available. This is the
+     * platform-side hasCapability() the protocol delegates to the plugin.
+     *
+     * @param string|null $key Frankenstyle plugin key, or null for core tools.
+     * @return bool True when the capability is present (or not required).
+     */
+    public static function has_capability_key(?string $key): bool {
+        global $DB;
+        if ($key === null || $key === '') {
+            return true;
+        }
+        [$type, $name] = array_pad(explode('_', $key, 2), 2, '');
+        if ($type === '' || $name === '') {
+            return false;
+        }
+        $plugins = \core_component::get_plugin_list($type);
+        if (!isset($plugins[$name])) {
+            return false;
+        }
+        if ($type === 'mod') {
+            return (bool) $DB->get_field('modules', 'visible', ['name' => $name]);
+        }
+        return true;
     }
 
     /**
@@ -89,6 +120,10 @@ abstract class module_base {
         if ($tool['required_scope'] === 'write' && !str_contains($scope, 'write')) {
             return ['error' => 'insufficient_scope',
                     'message' => 'This tool requires write scope (Pro tier).'];
+        }
+        if (!self::has_capability_key($tool['requires_capability'] ?? null)) {
+            return ['error' => 'failed_dependency', 'statusCode' => 424,
+                    'message' => 'This tool requires a plugin that is not installed or enabled on this site.'];
         }
 
         $method = 'execute_' . $toolname;
@@ -116,6 +151,9 @@ abstract class module_base {
      */
     public function get_tools(string $scope = 'read write'): array {
         return array_filter($this->tools, static function ($tool) use ($scope) {
+            if (!self::has_capability_key($tool['requires_capability'] ?? null)) {
+                return false;
+            }
             if ($tool['required_scope'] === 'read') {
                 return true;
             }
