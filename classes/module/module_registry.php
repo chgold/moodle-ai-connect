@@ -53,6 +53,7 @@ class module_registry {
     public function __construct() {
         $this->register(new core_module());
         $this->register(new content_module());
+        $this->register(new bigbluebutton_module());
         pro_loader::load($this);
 
         self::run_init_callbacks($this);
