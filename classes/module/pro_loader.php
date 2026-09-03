@@ -72,6 +72,11 @@ class pro_loader {
             'component' => 'local_aiconnectbbb',
             'slug'      => 'moodle-bigbluebutton-ai-connect',
         ],
+        [
+            'class'     => '\\local_aiconnecthvp\\module\\pro_module',
+            'component' => 'local_aiconnecthvp',
+            'slug'      => 'moodle-hvp-ai-connect',
+        ],
     ];
 
     /**

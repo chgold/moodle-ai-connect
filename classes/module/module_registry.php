@@ -54,6 +54,7 @@ class module_registry {
         $this->register(new core_module());
         $this->register(new content_module());
         $this->register(new bigbluebutton_module());
+        $this->register(new hvp_module());
         pro_loader::load($this);
 
         self::run_init_callbacks($this);
