@@ -110,7 +110,13 @@ class hvp_module extends module_base {
 
     private function activity_for(int $id, int $userid): \stdClass {
         global $DB;
-        $activity = $DB->get_record('h5pactivity', ['id' => $id], '*', MUST_EXIST);
+        // IGNORE_MISSING + explicit check so a non-existent id returns a clean
+        // "not found" instead of leaking the raw Moodle DB exception ("Can't find
+        // data record in database table h5pactivity").
+        $activity = $DB->get_record('h5pactivity', ['id' => $id], '*', IGNORE_MISSING);
+        if (!$activity) {
+            throw new \moodle_exception('generalexceptionmessage', 'error', '', "H5P activity {$id} not found");
+        }
         $this->require_course_access((int) $activity->course, $userid);
         return $activity;
     }
@@ -243,7 +249,12 @@ class hvp_module extends module_base {
     protected function execute_getAttemptDetails(array $params, array $context = []): array {
         global $DB;
         $attemptid = $this->clean_required($params, 'attemptid', PARAM_INT);
-        $attempt = $DB->get_record('h5pactivity_attempts', ['id' => $attemptid], '*', MUST_EXIST);
+        // IGNORE_MISSING + explicit check → clean "not found" instead of leaking the
+        // raw DB exception ("Can't find data record in database table h5pactivity_attempts").
+        $attempt = $DB->get_record('h5pactivity_attempts', ['id' => $attemptid], '*', IGNORE_MISSING);
+        if (!$attempt) {
+            throw new \moodle_exception('generalexceptionmessage', 'error', '', "H5P attempt {$attemptid} not found");
+        }
         $this->activity_for((int) $attempt->h5pactivityid, (int) ($context['userid'] ?? 0));
         $results = $DB->get_records('h5pactivity_attempts_results', ['attemptid' => $attemptid], 'id ASC',
             'id,subcontent,interactiontype,description,rawscore,maxscore,success');
@@ -287,7 +298,12 @@ class hvp_module extends module_base {
         global $DB, $CFG;
         $id = $this->clean_required($params, 'h5pactivityid', PARAM_INT);
         $this->activity_for($id, (int) ($context['userid'] ?? 0));
-        $cm = get_coursemodule_from_instance('h5pactivity', $id, 0, false, MUST_EXIST);
+        // activity_for already validated the activity exists; guard the course-module
+        // lookup too so a data-integrity gap returns a clean error, not a raw exception.
+        $cm = get_coursemodule_from_instance('h5pactivity', $id, 0, false, IGNORE_MISSING);
+        if (!$cm) {
+            throw new \moodle_exception('invalidcoursemodule', 'error', '', "No course module for H5P activity {$id}");
+        }
         $ctx = \context_module::instance($cm->id);
         $fs = get_file_storage();
         $files = $fs->get_area_files($ctx->id, 'mod_h5pactivity', 'package', 0, 'itemid, filepath, filename', false);
