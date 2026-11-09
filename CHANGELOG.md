@@ -4,6 +4,18 @@ All notable changes to `local_aiconnect` are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 semantic versioning.
 
+## [2.2.2] — 2026-11-09
+
+### Security
+- **Security: SEC-00 permission ceiling for the H5P and BigBlueButton tools** — tools now return no more than the acting user can see in Moodle itself.
+  - All `hvp.*` / `bigbluebutton.*` list/get tools apply the `require_login($course, false, $cm)` equivalent: course access with an *active* enrolment, `cm_info::uservisible` (hidden, stealth and availability-restricted activities are filtered from lists and answer "not found" on direct lookup) and `mod/{module}:view`.
+  - `hvp.getContentResults` / `getUserAttempts` / `getAttemptDetails`: own attempts only, unless the user holds `mod/h5pactivity:reviewattempts` in that activity (Moodle's `manager::get_report()` rule incl. tracking + review mode); reviewers are limited to their groups in separate-groups mode. Foreign attempt ids answer "not found". `hvp.getCourseAnalytics` aggregates only what the user could review.
+  - `hvp.getContentByType`: only content-bank items in contexts where the user has `moodle/contentbank:access` (plus course/category visibility) and that are public, own, or viewable via `moodle/contentbank:viewunlistedcontent`.
+  - `hvp.getContentParameters`: raw parameters (contain the answers) now require edit rights on the owning context (`moodle/course:manageactivities` / `moodle/contentbank:manageanycontent`) instead of a site-wide gate.
+  - `bigbluebutton.getMeetingAttendanceReport`: requires `report/participation:view` or `report/log:view` in the course (BBB has no own log capability; these reports are where Moodle shows other users' BBB activity), separate groups respected; everyone else is refused.
+  - `bigbluebutton.getJoinUrl`: requires `instance::can_join()` (`mod/bigbluebuttonbn:join` + group membership, never recording-only), validates `groupid` like the native `get_join_url` web service and honours `openingtime`/`closingtime`. Returns Moodle's `bbb_view.php?action=join` URL so wait-for-moderator, user limit and join logging stay enforced by Moodle.
+  - `bigbluebutton.listRecordings` / `getRecordingDetails` / `getRecordingPlaybackUrl`: users without `mod/bigbluebuttonbn:managerecordings` see only processed, non-headless recordings.
+
 ## [2.2.1] — 2026-11-09
 
 ### Security

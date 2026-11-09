@@ -7,7 +7,7 @@
 - **Type:** local plugin
 - **Compatibility:** Moodle **4.3+** (`$plugin->requires = 2023100900`)
 - **Maturity:** `MATURITY_STABLE`
-- **Release:** `2.2.1`
+- **Release:** `2.2.2`
 - **License:** GNU GPL v3 or later
 
 ---
@@ -173,6 +173,7 @@ rate-limit rows.
 | Rate limit | DB-backed, per-token, minute + hour windows |
 | Input validation | Moodle `PARAM_*` cleaners on every tool parameter |
 | Pro tools | Refused unless scope contains `write` |
+| Permission ceiling (SEC-00) | Security: H5P / BigBlueButton tools return only what the user sees natively — hidden/restricted activities filtered (`cm_info::uservisible`), attempts own-only without `mod/h5pactivity:reviewattempts`, BBB attendance needs course report capability, join honours `:join`, groups and opening/closing time (2.2.2) |
 | Privacy | `\local_aiconnect\privacy\provider` exports/deletes user data (GDPR) |
 | Cleanup | Daily scheduled task purges expired tokens & codes |
 | Uninstall | `db/uninstall.php` drops every plugin table cleanly |

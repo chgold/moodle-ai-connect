@@ -24,6 +24,8 @@
 
 namespace local_aiconnect\module;
 
+use local_aiconnect\local\activity_access;
+
 defined('MOODLE_INTERNAL') || die();
 
 class bigbluebutton_module extends module_base {
@@ -119,28 +121,68 @@ class bigbluebutton_module extends module_base {
     }
 
     /**
-     * Load a bigbluebutton instance + verify the caller may access its course.
+     * Load a bigbluebutton instance the acting user can see (require_login equivalent:
+     * course access + cm uservisible + mod/bigbluebuttonbn:view).
      *
      * @param int $bbbid bigbluebuttonbn instance id.
      * @param int $userid Acting user.
      * @return \mod_bigbluebuttonbn\instance
      */
     private function instance_for(int $bbbid, int $userid): \mod_bigbluebuttonbn\instance {
+        activity_access::require_instance('bigbluebuttonbn', $bbbid, $userid, 'BigBlueButton activity');
         $instance = \mod_bigbluebuttonbn\instance::get_from_instanceid($bbbid);
         if (!$instance) {
-            throw new \moodle_exception('invalidinstance', 'mod_bigbluebuttonbn');
+            throw new \moodle_exception('generalexceptionmessage', 'error', '', "BigBlueButton activity {$bbbid} not found");
         }
-        $this->require_course_access((int) $instance->get_course_id(), $userid);
         return $instance;
+    }
+
+    /**
+     * Validate a requested group the way mod_bigbluebuttonbn external get_join_url does.
+     *
+     * groupid=0 in a separate-groups activity without accessallgroups falls back to the
+     * user's first allowed group (what groups_get_activity_group() picks on bbb_view.php).
+     *
+     * @param \mod_bigbluebuttonbn\instance $instance Instance.
+     * @param int $groupid Requested group (0 = default).
+     * @param int $userid Acting user.
+     * @return int Group id to use.
+     */
+    private function resolve_group(\mod_bigbluebuttonbn\instance $instance, int $groupid, int $userid): int {
+        $cm = $instance->get_cm();
+        if (groups_get_activity_groupmode($cm) == NOGROUPS) {
+            return 0;
+        }
+        if (
+            $groupid === 0 && groups_get_activity_groupmode($cm) == SEPARATEGROUPS
+            && !has_capability('moodle/site:accessallgroups', $instance->get_context(), $userid)
+        ) {
+            $allowed = groups_get_activity_allowed_groups($cm, $userid);
+            if (!$allowed) {
+                throw new \moodle_exception('nopermissions', 'error', '', 'join: you are not a member of any group of this activity');
+            }
+            $groupid = (int) reset($allowed)->id;
+        }
+        if (!groups_group_visible($groupid, $instance->get_course(), $cm, $userid)) {
+            throw new \moodle_exception('nopermissions', 'error', '', "access group {$groupid} of this activity");
+        }
+        return $groupid;
     }
 
     protected function execute_listCourseMeetings(array $params, array $context = []): array {
         global $DB;
         $courseid = $this->clean_required($params, 'courseid', PARAM_INT);
-        $this->require_course_access($courseid, (int) ($context['userid'] ?? 0));
-        $rows = $DB->get_records(
+        $userid = (int) ($context['userid'] ?? 0);
+        activity_access::require_course($courseid, $userid);
+        $visible = activity_access::visible_instances('bigbluebuttonbn', $courseid, $userid);
+        if (!$visible) {
+            return [];
+        }
+        [$insql, $inparams] = $DB->get_in_or_equal(array_keys($visible), SQL_PARAMS_NAMED);
+        $rows = $DB->get_records_select(
             'bigbluebuttonbn',
-            ['course' => $courseid],
+            "id {$insql}",
+            $inparams,
             'name ASC',
             'id,name,type,meetingid,openingtime,closingtime,timemodified'
         );
@@ -157,32 +199,32 @@ class bigbluebutton_module extends module_base {
         global $DB;
         $search = $this->clean_required($params, 'search', PARAM_TEXT);
         $courseid = (int) $this->clean_optional($params, 'courseid', PARAM_INT, 0);
-        $limit = (int) $this->clean_optional($params, 'limit', PARAM_INT, 20);
+        $limit = max(1, (int) $this->clean_optional($params, 'limit', PARAM_INT, 20));
         $userid = (int) ($context['userid'] ?? 0);
-        $like = $DB->sql_like('name', ':search', false);
-        $conds = [$like];
+        $conds = [$DB->sql_like('name', ':search', false)];
         $args = ['search' => '%' . $DB->sql_like_escape($search) . '%'];
         if ($courseid) {
-            $this->require_course_access($courseid, $userid);
+            activity_access::require_course($courseid, $userid);
             $conds[] = 'course = :course';
             $args['course'] = $courseid;
         }
-        $rows = $DB->get_records_select(
-            'bigbluebuttonbn',
-            implode(' AND ', $conds),
-            $args,
-            'name ASC',
-            'id,name,course,type,openingtime,closingtime',
-            0,
-            max(1, $limit)
-        );
+        $rs = $DB->get_recordset_select('bigbluebuttonbn', implode(' AND ', $conds), $args, 'name ASC, id ASC', 'id,name,course');
         $out = [];
-        foreach ($rows as $r) {
-            if (!$courseid && !$this->can_access_course((int) $r->course, $userid)) {
+        $visiblebycourse = [];
+        foreach ($rs as $r) {
+            $cid = (int) $r->course;
+            if (!isset($visiblebycourse[$cid])) {
+                $visiblebycourse[$cid] = activity_access::visible_instances('bigbluebuttonbn', $cid, $userid);
+            }
+            if (!isset($visiblebycourse[$cid][(int) $r->id])) {
                 continue;
             }
-            $out[] = ['id' => (int) $r->id, 'name' => $r->name, 'course' => (int) $r->course];
+            $out[] = ['id' => (int) $r->id, 'name' => $r->name, 'course' => $cid];
+            if (count($out) >= $limit) {
+                break;
+            }
         }
+        $rs->close();
         return $out;
     }
 
@@ -208,8 +250,9 @@ class bigbluebutton_module extends module_base {
     protected function execute_getMeetingStatus(array $params, array $context = []): array {
         $bbbid = $this->clean_required($params, 'bigbluebuttonbnid', PARAM_INT);
         $groupid = (int) $this->clean_optional($params, 'groupid', PARAM_INT, 0);
-        $instance = $this->instance_for($bbbid, (int) ($context['userid'] ?? 0));
-        $instance->set_group_id($groupid);
+        $userid = (int) ($context['userid'] ?? 0);
+        $instance = $this->instance_for($bbbid, $userid);
+        $instance->set_group_id($this->resolve_group($instance, $groupid, $userid));
         try {
             $meeting = new \mod_bigbluebuttonbn\meeting($instance);
             return [
@@ -226,8 +269,9 @@ class bigbluebutton_module extends module_base {
     protected function execute_getMeetingParticipants(array $params, array $context = []): array {
         $bbbid = $this->clean_required($params, 'bigbluebuttonbnid', PARAM_INT);
         $groupid = (int) $this->clean_optional($params, 'groupid', PARAM_INT, 0);
-        $instance = $this->instance_for($bbbid, (int) ($context['userid'] ?? 0));
-        $instance->set_group_id($groupid);
+        $userid = (int) ($context['userid'] ?? 0);
+        $instance = $this->instance_for($bbbid, $userid);
+        $instance->set_group_id($this->resolve_group($instance, $groupid, $userid));
         try {
             $meeting = new \mod_bigbluebuttonbn\meeting($instance);
             $info = $meeting->get_meeting_info();
@@ -243,37 +287,83 @@ class bigbluebutton_module extends module_base {
         }
     }
 
+    /**
+     * Join URL, gated exactly like mod_bigbluebuttonbn's external get_join_url +
+     * meeting::get_meeting_info(): visible activity, group visible, instance::can_join()
+     * (mod/bigbluebuttonbn:join + group membership, never for recording-only) and
+     * instance::is_currently_open() (openingtime / closingtime).
+     *
+     * The URL returned is Moodle's own bbb_view.php?action=join entry point, so the
+     * wait-for-moderator rule, user limit, join logging and the BBB checksum are all
+     * applied by Moodle at click time; no BBB server secret is exposed to the agent.
+     */
     protected function execute_getJoinUrl(array $params, array $context = []): array {
         $cmid = $this->clean_required($params, 'cmid', PARAM_INT);
         $groupid = (int) $this->clean_optional($params, 'groupid', PARAM_INT, 0);
         $userid = (int) ($context['userid'] ?? 0);
+        activity_access::require_cmid('bigbluebuttonbn', $cmid, $userid, 'BigBlueButton activity');
         $instance = \mod_bigbluebuttonbn\instance::get_from_cmid($cmid);
         if (!$instance) {
-            throw new \moodle_exception('invalidinstance', 'mod_bigbluebuttonbn');
+            throw new \moodle_exception('generalexceptionmessage', 'error', '', "BigBlueButton activity course module {$cmid} not found");
         }
-        $this->require_course_access((int) $instance->get_course_id(), $userid);
+        $groupid = $this->resolve_group($instance, $groupid, $userid);
         $instance->set_group_id($groupid);
-        try {
-            $url = \mod_bigbluebuttonbn\local\proxy\bigbluebutton_proxy::get_join_url($instance);
-            return ['cmid' => $cmid, 'join_url' => (string) $url, 'server_available' => true];
-        } catch (\Throwable $e) {
-            return ['cmid' => $cmid, 'join_url' => null, 'server_available' => false,
-                'note' => 'Join URL needs a configured BigBlueButton server'];
+        if (!$instance->can_join()) {
+            throw new \moodle_exception('nopermissions', 'error', '', 'join this BigBlueButton meeting');
         }
+        if ($instance->before_start_time()) {
+            throw new \moodle_exception('generalexceptionmessage', 'error', '', 'This BigBlueButton meeting has not opened yet');
+        }
+        if ($instance->has_ended()) {
+            throw new \moodle_exception('generalexceptionmessage', 'error', '', 'This BigBlueButton meeting has closed');
+        }
+        $url = $instance->get_join_url();
+        if ($groupid) {
+            $url->param('group', $groupid);
+        }
+        return ['cmid' => $cmid, 'groupid' => $groupid, 'join_url' => $url->out(false)];
     }
 
+    /**
+     * Attendance log of every participant. mod_bigbluebuttonbn has no own "view logs"
+     * capability: other users' BBB join/leave events are only visible natively through
+     * the course participation / logs reports, so we require the same capability as
+     * those (report/participation:view or report/log:view in the course context) and
+     * respect separate groups. Everyone else is refused.
+     */
     protected function execute_getMeetingAttendanceReport(array $params, array $context = []): array {
         global $DB;
         $bbbid = $this->clean_required($params, 'bigbluebuttonbnid', PARAM_INT);
-        $limit = (int) $this->clean_optional($params, 'limit', PARAM_INT, 100);
-        $this->instance_for($bbbid, (int) ($context['userid'] ?? 0));
-        $rows = $DB->get_records(
+        $limit = max(1, (int) $this->clean_optional($params, 'limit', PARAM_INT, 100));
+        $userid = (int) ($context['userid'] ?? 0);
+        $instance = $this->instance_for($bbbid, $userid);
+        $coursectx = \context_course::instance((int) $instance->get_course_id());
+        $allowed = false;
+        foreach (['report/participation:view', 'report/log:view'] as $cap) {
+            if (get_capability_info($cap) && has_capability($cap, $coursectx, $userid)) {
+                $allowed = true;
+                break;
+            }
+        }
+        if (!$allowed) {
+            throw new \moodle_exception('nopermissions', 'error', '', 'view the attendance report of this meeting');
+        }
+        $where = 'bigbluebuttonbnid = :b';
+        $args = ['b' => $bbbid];
+        $userids = activity_access::group_visible_userids($instance->get_cm(), $userid);
+        if ($userids !== null) {
+            [$insql, $inparams] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED, 'gu');
+            $where .= " AND userid {$insql}";
+            $args += $inparams;
+        }
+        $rows = $DB->get_records_select(
             'bigbluebuttonbn_logs',
-            ['bigbluebuttonbnid' => $bbbid],
-            'timecreated DESC',
+            $where,
+            $args,
+            'timecreated DESC, id DESC',
             'id,userid,log,meetingid,timecreated',
             0,
-            max(1, $limit)
+            $limit
         );
         return array_values(array_map(static fn($r) => [
             'id'          => (int) $r->id,
@@ -283,13 +373,54 @@ class bigbluebutton_module extends module_base {
         ], $rows));
     }
 
+    /**
+     * Recording rows the user may list: managers (mod/bigbluebuttonbn:managerecordings)
+     * see all; everyone else only processed/notified, non-headless recordings.
+     *
+     * @param \mod_bigbluebuttonbn\instance $instance Instance.
+     * @param int $userid Acting user.
+     * @return array [string $where, array $params]
+     */
+    private function recording_filter(\mod_bigbluebuttonbn\instance $instance, int $userid): array {
+        $where = 'bigbluebuttonbnid = :b';
+        $args = ['b' => (int) $instance->get_instance_id()];
+        if (!has_capability('mod/bigbluebuttonbn:managerecordings', $instance->get_context(), $userid)) {
+            $where .= ' AND status IN (:s1, :s2) AND headless = 0';
+            $args['s1'] = \mod_bigbluebuttonbn\recording::RECORDING_STATUS_PROCESSED;
+            $args['s2'] = \mod_bigbluebuttonbn\recording::RECORDING_STATUS_NOTIFIED;
+        }
+        return [$where, $args];
+    }
+
+    /**
+     * Load one recording row the user may see, or throw "not found".
+     *
+     * @param \mod_bigbluebuttonbn\instance $instance Instance.
+     * @param string $recordingid BBB recording id.
+     * @param int $userid Acting user.
+     * @return \stdClass
+     */
+    private function recording_for(\mod_bigbluebuttonbn\instance $instance, string $recordingid, int $userid): \stdClass {
+        global $DB;
+        [$where, $args] = $this->recording_filter($instance, $userid);
+        $args['rid'] = $recordingid;
+        $r = $DB->get_record_select('bigbluebuttonbn_recordings', $where . ' AND recordingid = :rid', $args);
+        if (!$r) {
+            throw new \moodle_exception('generalexceptionmessage', 'error', '', "Recording {$recordingid} not found");
+        }
+        return $r;
+    }
+
     protected function execute_listRecordings(array $params, array $context = []): array {
         global $DB;
         $bbbid = $this->clean_required($params, 'bigbluebuttonbnid', PARAM_INT);
-        $this->instance_for($bbbid, (int) ($context['userid'] ?? 0));
-        $rows = $DB->get_records(
+        $userid = (int) ($context['userid'] ?? 0);
+        $instance = $this->instance_for($bbbid, $userid);
+        [$where, $args] = $this->recording_filter($instance, $userid);
+        $rows = $DB->get_records_select(
             'bigbluebuttonbn_recordings',
-            ['bigbluebuttonbnid' => $bbbid],
+            $where,
+            $args,
             'timecreated DESC',
             'id,recordingid,status,imported,headless,timecreated'
         );
@@ -302,14 +433,10 @@ class bigbluebutton_module extends module_base {
     }
 
     protected function execute_getRecordingDetails(array $params, array $context = []): array {
-        global $DB;
         $bbbid = $this->clean_required($params, 'bigbluebuttonbnid', PARAM_INT);
         $recordingid = $this->clean_required($params, 'recordingid', PARAM_TEXT);
-        $this->instance_for($bbbid, (int) ($context['userid'] ?? 0));
-        $r = $DB->get_record('bigbluebuttonbn_recordings', ['bigbluebuttonbnid' => $bbbid, 'recordingid' => $recordingid]);
-        if (!$r) {
-            throw new \moodle_exception('recordingnotfound', 'mod_bigbluebuttonbn');
-        }
+        $userid = (int) ($context['userid'] ?? 0);
+        $r = $this->recording_for($this->instance_for($bbbid, $userid), (string) $recordingid, $userid);
         return [
             'recordingid' => (string) $r->recordingid,
             'status'      => (int) $r->status,
@@ -321,14 +448,10 @@ class bigbluebutton_module extends module_base {
     }
 
     protected function execute_getRecordingPlaybackUrl(array $params, array $context = []): array {
-        global $DB;
         $bbbid = $this->clean_required($params, 'bigbluebuttonbnid', PARAM_INT);
         $recordingid = $this->clean_required($params, 'recordingid', PARAM_TEXT);
-        $this->instance_for($bbbid, (int) ($context['userid'] ?? 0));
-        $r = $DB->get_record('bigbluebuttonbn_recordings', ['bigbluebuttonbnid' => $bbbid, 'recordingid' => $recordingid]);
-        if (!$r) {
-            throw new \moodle_exception('recordingnotfound', 'mod_bigbluebuttonbn');
-        }
+        $userid = (int) ($context['userid'] ?? 0);
+        $r = $this->recording_for($this->instance_for($bbbid, $userid), (string) $recordingid, $userid);
         $imported = ! empty($r->imported) && ! empty($r->importeddata);
         $playbacks = [];
         if ($imported) {
@@ -343,37 +466,5 @@ class bigbluebutton_module extends module_base {
             'server_available' => (bool) $imported ? true : null,
             'note' => $imported ? null : 'Live playback URLs require a configured BigBlueButton server.',
         ];
-    }
-
-    /**
-     * Throw unless the acting user may access the course.
-     *
-     * @param int $courseid Course ID.
-     * @param int $userid   Acting user ID.
-     */
-    private function require_course_access(int $courseid, int $userid): void {
-        $coursecontext = \context_course::instance($courseid, IGNORE_MISSING);
-        if (!$coursecontext) {
-            throw new \moodle_exception('invalidcourseid', 'error');
-        }
-        if (!is_enrolled($coursecontext, $userid) && !has_capability('moodle/course:view', $coursecontext, $userid)) {
-            throw new \moodle_exception('nopermissions', 'error', '', 'access this course');
-        }
-    }
-
-    /**
-     * Boolean course-access check (no throw).
-     *
-     * @param int $courseid Course ID.
-     * @param int $userid   Acting user ID.
-     * @return bool
-     */
-    private function can_access_course(int $courseid, int $userid): bool {
-        try {
-            $this->require_course_access($courseid, $userid);
-            return true;
-        } catch (\Throwable $e) {
-            return false;
-        }
     }
 }
