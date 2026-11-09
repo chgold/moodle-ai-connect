@@ -348,17 +348,92 @@ HTML;
 
     /**
      * RFC 7009 token revocation endpoint.
+     *
+     * Public by design: no Bearer, cookie, sesskey or require_login — whoever
+     * holds a token (a public PKCE client such as goldnat) may kill it.
+     * `token` may be the access OR the refresh half of a pair; either one
+     * revokes the whole pair. `token_type_hint` (access_token|refresh_token)
+     * only changes the lookup order. Unknown / already revoked tokens still
+     * get a 200 so callers cannot probe for valid tokens; only a missing
+     * `token` yields 400 invalid_request. Never redirects.
      */
     public function revoke(): void {
         global $DB;
 
-        $headers = function_exists('getallheaders') ? getallheaders() : [];
-        $header  = $headers['Authorization'] ?? $headers['authorization'] ?? '';
-        if (str_starts_with($header, 'Bearer ')) {
-            $token = trim(substr($header, 7));
-            $DB->set_field('local_aiconnect_tokens', 'revoked', 1, ['token' => $token]);
-            token_registry::revoke($token);
+        header('Cache-Control: no-store');
+        header('Pragma: no-cache');
+
+        // Accept application/x-www-form-urlencoded (RFC 7009) and JSON.
+        $contenttype = (string) ($_SERVER['CONTENT_TYPE'] ?? '');
+        if (stripos($contenttype, 'application/json') !== false) {
+            $body = json_decode((string) file_get_contents('php://input'), true);
+            if (is_array($body)) {
+                foreach ($body as $k => $v) {
+                    if (!isset($_POST[$k])) {
+                        $_POST[$k] = is_scalar($v) ? (string) $v : '';
+                    }
+                }
+            }
         }
+
+        $token = optional_param('token', '', PARAM_RAW_TRIMMED);
+        $hint  = optional_param('token_type_hint', '', PARAM_ALPHANUMEXT);
+
+        // Legacy fallback (pre-2.2.1 clients): token sent as a Bearer header.
+        if ($token === '') {
+            $headers = function_exists('getallheaders') ? getallheaders() : [];
+            $header  = $headers['Authorization'] ?? $headers['authorization'] ?? '';
+            if (str_starts_with($header, 'Bearer ')) {
+                $token = trim(substr($header, 7));
+            }
+        }
+        if ($token === '') {
+            http::oauth_error(400, 'invalid_request', 'token is required');
+        }
+
+        $types = $hint === 'refresh_token' ? ['refresh', 'access'] : ['access', 'refresh'];
+
+        // Hash-first, plaintext fallback: rows are stored plaintext today, the
+        // SHA-256 probe keeps this correct once tokens are hashed at rest.
+        $row = null;
+        foreach ($types as $type) {
+            foreach ([hash('sha256', $token), $token] as $candidate) {
+                $row = $DB->get_record('local_aiconnect_tokens', [
+                    'token' => $candidate, 'tokentype' => $type,
+                ], '*', IGNORE_MULTIPLE);
+                if ($row) {
+                    break 2;
+                }
+            }
+        }
+
+        if ($row) {
+            // Resolve the access half of the pair; refresh rows point to it.
+            $accesstoken = $row->tokentype === 'access' ? (string) $row->token : (string) $row->parenttoken;
+
+            $transaction = $DB->start_delegated_transaction();
+            try {
+                $DB->set_field('local_aiconnect_tokens', 'revoked', 1, ['id' => $row->id]);
+                if ($accesstoken !== '') {
+                    $DB->set_field('local_aiconnect_tokens', 'revoked', 1, [
+                        'token' => $accesstoken, 'tokentype' => 'access',
+                    ]);
+                    $DB->set_field('local_aiconnect_tokens', 'revoked', 1, [
+                        'parenttoken' => $accesstoken, 'tokentype' => 'refresh',
+                    ]);
+                    // Sync the registry (admin token list + "My tokens") — it is
+                    // also the plugin's audit trail (revoked_at / revoked_by).
+                    // revoked_by = 0: revoked by the token holder via RFC 7009.
+                    token_registry::revoke($accesstoken, 0);
+                }
+                $transaction->allow_commit();
+            } catch (\Throwable $e) {
+                $transaction->rollback($e instanceof \Exception ? $e : new \Exception($e->getMessage()));
+            }
+        }
+
+        // Same answer whether or not the token was known (no probing).
+        http_response_code(200);
         echo json_encode(['success' => true]);
     }
 

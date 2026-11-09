@@ -38,10 +38,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
 try {
     $action = required_param('action', PARAM_ALPHANUMEXT);
 
-    // Per-IP rate limit on OAuth endpoints — token endpoint gets a higher
-    // budget because clients legitimately retry token exchanges.
-    $perminute = $action === 'token' ? 20 : 10;
-    $perhour   = $action === 'token' ? 200 : 60;
+    // Per-IP rate limit on OAuth endpoints — token and revoke get a higher
+    // budget: clients legitimately retry token exchanges, and RFC 7009 callers
+    // (e.g. goldnat) revoke refresh + access from one server IP per disconnect.
+    $highbudget = in_array($action, ['token', 'revoke'], true);
+    $perminute = $highbudget ? 20 : 10;
+    $perhour   = $highbudget ? 200 : 60;
     auth_middleware::check_ip_rate_limit('oauth_' . $action, $perminute, $perhour);
 
     $ctrl   = new oauth_controller();

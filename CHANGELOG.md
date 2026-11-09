@@ -4,6 +4,12 @@ All notable changes to `local_aiconnect` are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 semantic versioning.
 
+## [2.2.1] — 2026-11-09
+
+### Security
+- **RFC 7009 token revocation:** `oauth.php?action=revoke` (manifest `auth.revocation_url`) now takes `token` (access OR refresh) + optional `token_type_hint` as form-urlencoded or JSON, with no authentication. Either half revokes the whole access/refresh pair immediately and syncs the token registry (admin list + My Tokens). Unknown or already-revoked tokens return 200; a missing `token` returns 400 `invalid_request`. Previously only a Bearer header was honoured and refresh tokens survived revocation.
+- Revoke endpoint per-IP rate limit raised to the token endpoint's budget (20/min, 200/h).
+
 ## [2.2.0] — 2026-07-03
 
 ### Added

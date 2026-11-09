@@ -119,7 +119,7 @@ class manifest_controller {
         return [
             'schema_version' => '1.0',
             'name'           => 'moodle-plugin',
-            'version'        => '1.1.0',
+            'version'        => '2.2.1',
             'description'    => 'AI Connect for Moodle — access courses, grades, assignments and manage learning via AI agents',
             'api_version'    => 'v1',
             'capabilities'   => ['tools' => true, 'resources' => false, 'prompts' => false],

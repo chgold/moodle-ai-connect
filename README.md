@@ -7,7 +7,7 @@
 - **Type:** local plugin
 - **Compatibility:** Moodle **4.3+** (`$plugin->requires = 2023100900`)
 - **Maturity:** `MATURITY_STABLE`
-- **Release:** `1.1.0`
+- **Release:** `2.2.1`
 - **License:** GNU GPL v3 or later
 
 ---
@@ -75,7 +75,7 @@ Defined in `db/access.php`:
 | `GET`  | `/local/aiconnect/info.php` | Human-readable info & token generator |
 | `GET`/`POST` | `/local/aiconnect/oauth.php?action=authorize` | OAuth 2 consent |
 | `POST` | `/local/aiconnect/oauth.php?action=token` | Token grant |
-| `POST` | `/local/aiconnect/oauth.php?action=revoke` | Token revocation (RFC 7009) |
+| `POST` | `/local/aiconnect/oauth.php?action=revoke` | RFC 7009 token revocation — no auth; `token` (access or refresh, revokes the whole pair) + optional `token_type_hint`; always 200, 400 only when `token` is missing. Advertised in the manifest as `auth.revocation_url` |
 | `POST` | `/local/aiconnect/oauth.php?action=generate_token` | Helper for logged-in admins |
 | `POST` | `/local/aiconnect/v1/tools/{tool}` | Execute a tool |
 | `POST` | `/local/aiconnect/tools.php` | Same, with `?tool=` query parameter |
