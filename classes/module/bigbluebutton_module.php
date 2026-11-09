@@ -27,7 +27,6 @@ namespace local_aiconnect\module;
 defined('MOODLE_INTERNAL') || die();
 
 class bigbluebutton_module extends module_base {
-
     /** @var string Tool namespace prefix. */
     protected string $module_name = 'bigbluebutton';
 
@@ -139,8 +138,12 @@ class bigbluebutton_module extends module_base {
         global $DB;
         $courseid = $this->clean_required($params, 'courseid', PARAM_INT);
         $this->require_course_access($courseid, (int) ($context['userid'] ?? 0));
-        $rows = $DB->get_records('bigbluebuttonbn', ['course' => $courseid], 'name ASC',
-            'id,name,type,meetingid,openingtime,closingtime,timemodified');
+        $rows = $DB->get_records(
+            'bigbluebuttonbn',
+            ['course' => $courseid],
+            'name ASC',
+            'id,name,type,meetingid,openingtime,closingtime,timemodified'
+        );
         return array_values(array_map(static fn($r) => [
             'id'          => (int) $r->id,
             'name'        => $r->name,
@@ -164,8 +167,15 @@ class bigbluebutton_module extends module_base {
             $conds[] = 'course = :course';
             $args['course'] = $courseid;
         }
-        $rows = $DB->get_records_select('bigbluebuttonbn', implode(' AND ', $conds), $args,
-            'name ASC', 'id,name,course,type,openingtime,closingtime', 0, max(1, $limit));
+        $rows = $DB->get_records_select(
+            'bigbluebuttonbn',
+            implode(' AND ', $conds),
+            $args,
+            'name ASC',
+            'id,name,course,type,openingtime,closingtime',
+            0,
+            max(1, $limit)
+        );
         $out = [];
         foreach ($rows as $r) {
             if (!$courseid && !$this->can_access_course((int) $r->course, $userid)) {
@@ -257,8 +267,14 @@ class bigbluebutton_module extends module_base {
         $bbbid = $this->clean_required($params, 'bigbluebuttonbnid', PARAM_INT);
         $limit = (int) $this->clean_optional($params, 'limit', PARAM_INT, 100);
         $this->instance_for($bbbid, (int) ($context['userid'] ?? 0));
-        $rows = $DB->get_records('bigbluebuttonbn_logs', ['bigbluebuttonbnid' => $bbbid],
-            'timecreated DESC', 'id,userid,log,meetingid,timecreated', 0, max(1, $limit));
+        $rows = $DB->get_records(
+            'bigbluebuttonbn_logs',
+            ['bigbluebuttonbnid' => $bbbid],
+            'timecreated DESC',
+            'id,userid,log,meetingid,timecreated',
+            0,
+            max(1, $limit)
+        );
         return array_values(array_map(static fn($r) => [
             'id'          => (int) $r->id,
             'userid'      => (int) $r->userid,
@@ -271,8 +287,12 @@ class bigbluebutton_module extends module_base {
         global $DB;
         $bbbid = $this->clean_required($params, 'bigbluebuttonbnid', PARAM_INT);
         $this->instance_for($bbbid, (int) ($context['userid'] ?? 0));
-        $rows = $DB->get_records('bigbluebuttonbn_recordings', ['bigbluebuttonbnid' => $bbbid],
-            'timecreated DESC', 'id,recordingid,status,imported,headless,timecreated');
+        $rows = $DB->get_records(
+            'bigbluebuttonbn_recordings',
+            ['bigbluebuttonbnid' => $bbbid],
+            'timecreated DESC',
+            'id,recordingid,status,imported,headless,timecreated'
+        );
         return array_values(array_map(static fn($r) => [
             'recordingid' => (string) $r->recordingid,
             'status'      => (int) $r->status,

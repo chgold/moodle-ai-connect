@@ -35,7 +35,6 @@ defined('MOODLE_INTERNAL') || die();
  * Base class for a self-contained group of WebMCP tools.
  */
 abstract class module_base {
-
     /** @var string Module namespace prefix (e.g. "moodle" → "moodle.getCourses"). */
     protected string $module_name = '';
 
@@ -226,7 +225,9 @@ abstract class module_base {
      */
     protected function error(string $key, string $message, array $context = []): array {
         $out = ['error' => $key, 'message' => $message];
-        if ($context) { $out['context'] = $context; }
+        if ($context) {
+            $out['context'] = $context;
+        }
         return $out;
     }
 }

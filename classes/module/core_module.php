@@ -30,7 +30,6 @@ defined('MOODLE_INTERNAL') || die();
  * Free Moodle tools: list courses, view assignments, grades, profile.
  */
 class core_module extends module_base {
-
     /** @var string Tool namespace prefix. */
     protected string $module_name = 'moodle';
 
@@ -89,8 +88,11 @@ class core_module extends module_base {
     protected function execute_getCourses(array $params, array $context = []): array {
         $userid = (int) ($context['userid'] ?? 0);
         $limit = $this->clean_optional($params, 'limit', PARAM_INT, 20);
-        $courses = enrol_get_all_users_courses($userid, true,
-            ['id', 'fullname', 'shortname', 'summary', 'startdate', 'enddate']);
+        $courses = enrol_get_all_users_courses(
+            $userid,
+            true,
+            ['id', 'fullname', 'shortname', 'summary', 'startdate', 'enddate']
+        );
         return array_values(array_map(static fn($c) => [
             'id'        => (int) $c->id,
             'fullname'  => $c->fullname,
@@ -128,8 +130,11 @@ class core_module extends module_base {
      */
     protected function execute_getEnrollments(array $params, array $context = []): array {
         $userid = (int) ($context['userid'] ?? 0);
-        $courses = enrol_get_all_users_courses($userid, true,
-            ['id', 'fullname', 'shortname']);
+        $courses = enrol_get_all_users_courses(
+            $userid,
+            true,
+            ['id', 'fullname', 'shortname']
+        );
         return array_values(array_map(static fn($c) => [
             'id'        => (int) $c->id,
             'fullname'  => $c->fullname,
@@ -147,8 +152,14 @@ class core_module extends module_base {
     protected function execute_getAssignments(array $params, array $context = []): array {
         global $DB;
         $courseid = $this->clean_required($params, 'courseid', PARAM_INT);
-        $assigns = $DB->get_records('assign', ['course' => $courseid],
-            'duedate ASC', 'id,name,intro,duedate,allowsubmissionsfromdate', 0, 20);
+        $assigns = $DB->get_records(
+            'assign',
+            ['course' => $courseid],
+            'duedate ASC',
+            'id,name,intro,duedate,allowsubmissionsfromdate',
+            0,
+            20
+        );
         return array_values(array_map(static fn($a) => [
             'id'      => (int) $a->id,
             'name'    => $a->name,

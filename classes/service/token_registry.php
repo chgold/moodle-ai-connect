@@ -41,7 +41,6 @@ defined('MOODLE_INTERNAL') || die();
  * access token (token_prefix) are kept for fast indexed lookups.
  */
 class token_registry {
-
     /** @var int Number of leading characters of a token to persist. */
     public const PREFIX_LENGTH = 16;
 
@@ -70,9 +69,15 @@ class token_registry {
      * @param int|null $refreshexpiresat  Optional refresh token expiration timestamp.
      * @return void
      */
-    public static function register(string $token, int $userid, string $clientid,
-            string $scope, int $expiresat, string $source = 'oauth',
-            ?int $refreshexpiresat = null): void {
+    public static function register(
+        string $token,
+        int $userid,
+        string $clientid,
+        string $scope,
+        int $expiresat,
+        string $source = 'oauth',
+        ?int $refreshexpiresat = null
+    ): void {
         global $DB;
 
         $record = (object) [
@@ -489,7 +494,10 @@ class token_registry {
             if (!defined('PHPUNIT_TEST') || !PHPUNIT_TEST) {
                 mtrace(sprintf(
                     'local_aiconnect token_registry cleanup: unused=%d inactive=%d expired=%d deleted=%d',
-                    $summary['unused'], $summary['inactive'], $summary['expired'], $summary['deleted']
+                    $summary['unused'],
+                    $summary['inactive'],
+                    $summary['expired'],
+                    $summary['deleted']
                 ));
             }
         } catch (\Throwable $e) {

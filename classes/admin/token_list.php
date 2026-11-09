@@ -38,7 +38,6 @@ defined('MOODLE_INTERNAL') || die();
  * Builds the token-list admin view and executes revoke / bulk-revoke actions.
  */
 class token_list {
-
     /** @var int Maximum rows displayed per page. */
     public const PAGE_SIZE = 100;
 

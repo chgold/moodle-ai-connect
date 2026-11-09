@@ -93,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // GET = confirmation form.
 echo $OUTPUT->header();
 
-$heading = match($type) {
+$heading = match ($type) {
     'unused'   => get_string('mytokens_revoke_all_unused', 'local_aiconnect'),
     'inactive' => get_string('mytokens_revoke_all_inactive', 'local_aiconnect'),
     default    => get_string('mytokens_revoke_all', 'local_aiconnect'),
@@ -106,10 +106,13 @@ if ($needsdoubleconfirm) {
     $confirmurl = new moodle_url('/local/aiconnect/mytokens/revoke-all.php', [
         'userid' => $userid, 'type' => $type, 'filter' => $filter, 'confirm2' => 1,
     ]);
-    echo html_writer::tag('p',
-        html_writer::link($confirmurl->out(false),
+    echo html_writer::tag(
+        'p',
+        html_writer::link(
+            $confirmurl->out(false),
             s(get_string('mytokens_revoke_all', 'local_aiconnect')),
-            ['class' => 'btn btn-danger mr-2'])
+            ['class' => 'btn btn-danger mr-2']
+        )
     );
 } else {
     echo html_writer::start_tag('form', ['method' => 'post', 'action' => '']);
@@ -117,7 +120,8 @@ if ($needsdoubleconfirm) {
     echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'userid', 'value' => $userid]);
     echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'type', 'value' => $type]);
     echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'filter', 'value' => $filter]);
-    echo html_writer::tag('button',
+    echo html_writer::tag(
+        'button',
         s($heading),
         ['type' => 'submit', 'class' => 'btn btn-danger mr-2']
     );

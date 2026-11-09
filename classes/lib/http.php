@@ -30,7 +30,6 @@ defined('MOODLE_INTERNAL') || die();
  * Stateless HTTP helpers for the JSON endpoints.
  */
 class http {
-
     /**
      * Apply CORS headers based on the configured whitelist.
      *

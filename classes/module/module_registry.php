@@ -37,7 +37,6 @@ defined('MOODLE_INTERNAL') || die();
  * incoming tool calls to the correct module.
  */
 class module_registry {
-
     /** @var array<int, module_base> Registered modules, in registration order. */
     private array $modules = [];
 

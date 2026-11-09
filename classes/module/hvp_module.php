@@ -28,7 +28,6 @@ namespace local_aiconnect\module;
 defined('MOODLE_INTERNAL') || die();
 
 class hvp_module extends module_base {
-
     /** @var string Tool namespace prefix. */
     protected string $module_name = 'hvp';
 
@@ -125,8 +124,12 @@ class hvp_module extends module_base {
         global $DB;
         $courseid = $this->clean_required($params, 'courseid', PARAM_INT);
         $this->require_course_access($courseid, (int) ($context['userid'] ?? 0));
-        $rows = $DB->get_records('h5pactivity', ['course' => $courseid], 'name ASC',
-            'id,name,grade,enabletracking,grademethod,timemodified');
+        $rows = $DB->get_records(
+            'h5pactivity',
+            ['course' => $courseid],
+            'name ASC',
+            'id,name,grade,enabletracking,grademethod,timemodified'
+        );
         return array_values(array_map(static fn($r) => [
             'id' => (int) $r->id, 'name' => $r->name, 'grade' => (int) $r->grade,
             'tracking' => (bool) $r->enabletracking,
@@ -158,8 +161,15 @@ class hvp_module extends module_base {
             $conds[] = 'course = :c';
             $args['c'] = $courseid;
         }
-        $rows = $DB->get_records_select('h5pactivity', implode(' AND ', $conds), $args, 'name ASC',
-            'id,name,course', 0, max(1, $limit));
+        $rows = $DB->get_records_select(
+            'h5pactivity',
+            implode(' AND ', $conds),
+            $args,
+            'name ASC',
+            'id,name,course',
+            0,
+            max(1, $limit)
+        );
         $out = [];
         foreach ($rows as $r) {
             if (!$courseid && !$this->can_access_course((int) $r->course, $userid)) {
@@ -174,8 +184,14 @@ class hvp_module extends module_base {
         global $DB;
         $type = $this->clean_required($params, 'contenttype', PARAM_TEXT);
         $limit = (int) $this->clean_optional($params, 'limit', PARAM_INT, 50);
-        $rows = $DB->get_records('contentbank_content', ['contenttype' => $type], 'name ASC',
-            'id,name,contenttype,contextid,timemodified', 0, max(1, $limit));
+        $rows = $DB->get_records(
+            'contentbank_content',
+            ['contenttype' => $type],
+            'name ASC',
+            'id,name,contenttype,contextid,timemodified',
+            0,
+            max(1, $limit)
+        );
         return array_values(array_map(static fn($r) => [
             'id' => (int) $r->id, 'name' => $r->name, 'contenttype' => $r->contenttype,
         ], $rows));
@@ -183,8 +199,12 @@ class hvp_module extends module_base {
 
     protected function execute_listContentTypes(array $params, array $context = []): array {
         global $DB;
-        $rows = $DB->get_records('h5p_libraries', ['runnable' => 1, 'enabled' => 1], 'title ASC',
-            'id,machinename,title,majorversion,minorversion');
+        $rows = $DB->get_records(
+            'h5p_libraries',
+            ['runnable' => 1, 'enabled' => 1],
+            'title ASC',
+            'id,machinename,title,majorversion,minorversion'
+        );
         return array_values(array_map(static fn($r) => [
             'machinename' => $r->machinename, 'title' => $r->title,
             'version' => $r->majorversion . '.' . $r->minorversion,
@@ -222,8 +242,14 @@ class hvp_module extends module_base {
         $id = $this->clean_required($params, 'h5pactivityid', PARAM_INT);
         $limit = (int) $this->clean_optional($params, 'limit', PARAM_INT, 100);
         $this->activity_for($id, (int) ($context['userid'] ?? 0));
-        $rows = $DB->get_records('h5pactivity_attempts', ['h5pactivityid' => $id],
-            'timemodified DESC', 'id,userid,attempt,rawscore,maxscore,scaled,completion,success,duration', 0, max(1, $limit));
+        $rows = $DB->get_records(
+            'h5pactivity_attempts',
+            ['h5pactivityid' => $id],
+            'timemodified DESC',
+            'id,userid,attempt,rawscore,maxscore,scaled,completion,success,duration',
+            0,
+            max(1, $limit)
+        );
         $out = array_values(array_map(static fn($r) => [
             'attemptid' => (int) $r->id, 'userid' => (int) $r->userid, 'attempt' => (int) $r->attempt,
             'rawscore' => (int) $r->rawscore, 'maxscore' => (int) $r->maxscore,
@@ -237,8 +263,12 @@ class hvp_module extends module_base {
         $id = $this->clean_required($params, 'h5pactivityid', PARAM_INT);
         $targetuser = $this->clean_required($params, 'userid', PARAM_INT);
         $this->activity_for($id, (int) ($context['userid'] ?? 0));
-        $rows = $DB->get_records('h5pactivity_attempts', ['h5pactivityid' => $id, 'userid' => $targetuser],
-            'attempt ASC', 'id,attempt,rawscore,maxscore,scaled,completion,success,duration,timemodified');
+        $rows = $DB->get_records(
+            'h5pactivity_attempts',
+            ['h5pactivityid' => $id, 'userid' => $targetuser],
+            'attempt ASC',
+            'id,attempt,rawscore,maxscore,scaled,completion,success,duration,timemodified'
+        );
         return array_values(array_map(static fn($r) => [
             'attemptid' => (int) $r->id, 'attempt' => (int) $r->attempt,
             'rawscore' => (int) $r->rawscore, 'maxscore' => (int) $r->maxscore, 'scaled' => (float) $r->scaled,
@@ -256,8 +286,12 @@ class hvp_module extends module_base {
             throw new \moodle_exception('generalexceptionmessage', 'error', '', "H5P attempt {$attemptid} not found");
         }
         $this->activity_for((int) $attempt->h5pactivityid, (int) ($context['userid'] ?? 0));
-        $results = $DB->get_records('h5pactivity_attempts_results', ['attemptid' => $attemptid], 'id ASC',
-            'id,subcontent,interactiontype,description,rawscore,maxscore,success');
+        $results = $DB->get_records(
+            'h5pactivity_attempts_results',
+            ['attemptid' => $attemptid],
+            'id ASC',
+            'id,subcontent,interactiontype,description,rawscore,maxscore,success'
+        );
         return [
             'attemptid' => (int) $attempt->id,
             'userid' => (int) $attempt->userid,
@@ -309,8 +343,14 @@ class hvp_module extends module_base {
         $files = $fs->get_area_files($ctx->id, 'mod_h5pactivity', 'package', 0, 'itemid, filepath, filename', false);
         $url = null;
         foreach ($files as $f) {
-            $url = \moodle_url::make_pluginfile_url($ctx->id, 'mod_h5pactivity', 'package', 0,
-                $f->get_filepath(), $f->get_filename())->out(false);
+            $url = \moodle_url::make_pluginfile_url(
+                $ctx->id,
+                'mod_h5pactivity',
+                'package',
+                0,
+                $f->get_filepath(),
+                $f->get_filename()
+            )->out(false);
             break;
         }
         return [
@@ -343,8 +383,10 @@ class hvp_module extends module_base {
     }
 
     private function require_admin_or_manager(int $userid): void {
-        if (!has_capability('moodle/site:config', \context_system::instance(), $userid)
-            && !has_capability('moodle/contentbank:access', \context_system::instance(), $userid)) {
+        if (
+            !has_capability('moodle/site:config', \context_system::instance(), $userid)
+            && !has_capability('moodle/contentbank:access', \context_system::instance(), $userid)
+        ) {
             throw new \moodle_exception('nopermissions', 'error', '', 'read raw H5P parameters');
         }
     }

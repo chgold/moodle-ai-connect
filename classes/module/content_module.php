@@ -34,7 +34,6 @@ defined('MOODLE_INTERNAL') || die();
  * not enrolled in.
  */
 class content_module extends module_base {
-
     /** @var string Tool namespace prefix. */
     protected string $module_name = 'moodle';
 
@@ -330,8 +329,14 @@ class content_module extends module_base {
         $forum = $DB->get_record('forum', ['id' => $forumid], '*', MUST_EXIST);
         $this->require_course_access((int) $forum->course, $userid);
 
-        $discussions = $DB->get_records('forum_discussions', ['forum' => $forumid],
-            'timemodified DESC', 'id,name,userid,timemodified,timestart,pinned', 0, max(1, $limit));
+        $discussions = $DB->get_records(
+            'forum_discussions',
+            ['forum' => $forumid],
+            'timemodified DESC',
+            'id,name,userid,timemodified,timestart,pinned',
+            0,
+            max(1, $limit)
+        );
 
         return array_values(array_map(static fn($d) => [
             'id'           => (int) $d->id,
@@ -359,8 +364,14 @@ class content_module extends module_base {
         $discussion = $DB->get_record('forum_discussions', ['id' => $discussionid], '*', MUST_EXIST);
         $this->require_course_access((int) $discussion->course, $userid);
 
-        $posts = $DB->get_records('forum_posts', ['discussion' => $discussionid],
-            'created ASC', 'id,parent,userid,created,modified,subject,message', 0, max(1, $limit));
+        $posts = $DB->get_records(
+            'forum_posts',
+            ['discussion' => $discussionid],
+            'created ASC',
+            'id,parent,userid,created,modified,subject,message',
+            0,
+            max(1, $limit)
+        );
 
         return array_values(array_map(static fn($p) => [
             'id'       => (int) $p->id,

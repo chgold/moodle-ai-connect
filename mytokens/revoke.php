@@ -74,7 +74,8 @@ echo $OUTPUT->heading(get_string('mytokens_revoke', 'local_aiconnect'));
 
 echo $OUTPUT->box(
     html_writer::tag('p', s(get_string('mytokens_revoke_confirm', 'local_aiconnect')))
-    . html_writer::tag('p',
+    . html_writer::tag(
+        'p',
         html_writer::tag('strong', 'Token prefix: ')
         . html_writer::tag('code', s($rec->token_prefix) . '…')
     )
@@ -85,7 +86,8 @@ echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', '
 echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'id', 'value' => $id]);
 echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'userid', 'value' => $userid]);
 echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'filter', 'value' => $filter]);
-echo html_writer::tag('button',
+echo html_writer::tag(
+    'button',
     s(get_string('mytokens_revoke', 'local_aiconnect')),
     ['type' => 'submit', 'class' => 'btn btn-danger mr-2']
 );

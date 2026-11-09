@@ -38,7 +38,6 @@ defined('MOODLE_INTERNAL') || die();
  * without the matching tokens being written.
  */
 class oauth_controller {
-
     /** @var int Access token lifetime in seconds. */
     private const ACCESS_TOKEN_TTL = 3600;
 
@@ -177,8 +176,14 @@ class oauth_controller {
      * @param string $state       Opaque state from the client.
      * @return string Rendered HTML page.
      */
-    private function render_consent(string $name, string $scope, string $clientid, string $challenge,
-            string $redirecturi, string $state): string {
+    private function render_consent(
+        string $name,
+        string $scope,
+        string $clientid,
+        string $challenge,
+        string $redirecturi,
+        string $state
+    ): string {
         global $CFG;
         $sesskey = sesskey();
         $action = $CFG->wwwroot . '/local/aiconnect/oauth.php?action=authorize';

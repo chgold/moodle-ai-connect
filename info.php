@@ -86,16 +86,16 @@ echo $OUTPUT->header();
 
 <div class="aic-section">
 <h2>🔑 Get Your Connection Prompt</h2>
-<?php if (!$isloggedin): ?>
+<?php if (!$isloggedin) : ?>
     <p>Sign in to your Moodle account to generate a Bearer token for your AI agent.</p>
     <a class="aic-btn" href="<?php echo s($loginurl); ?>">🔐 Log in to generate token</a>
-<?php elseif (!$hasuse): ?>
+<?php elseif (!$hasuse) : ?>
     <div class="aic-notice">
         You are logged in as <strong><?php echo s(fullname($USER)); ?></strong>, but your account
         does not have the <code>local/aiconnect:use</code> capability required to generate tokens.
         Please contact a site administrator.
     </div>
-<?php else: ?>
+<?php else : ?>
     <p>Click the button below to generate a Bearer token and copy-paste prompt for your AI agent.</p>
     <form id="aic-generate-form" class="aic-form" method="POST" action="<?php echo s($tokenaction); ?>">
         <input type="hidden" name="sesskey" value="<?php echo s(sesskey()); ?>">
@@ -137,7 +137,7 @@ echo $OUTPUT->header();
 </div>
 
 </div></div>
-<?php if ($hasuse): ?>
+<?php if ($hasuse) : ?>
 <script>
 (function () {
     var form = document.getElementById('aic-generate-form');

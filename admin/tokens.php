@@ -59,10 +59,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $bulk_action !== '') {
     } else if ($bulk_action === 'revoke_all') {
         $count = token_list::revoke_bulk_all();
     }
-    redirect(new moodle_url('/local/aiconnect/admin/tokens.php', [
-        'userid' => $userid ?: '', 'clientid' => $clientid, 'status' => $status, 'page' => $page,
-    ]), get_string('mytokens_revoked_bulk_ok', 'local_aiconnect', $count), null,
-    \core\output\notification::NOTIFY_SUCCESS);
+    redirect(
+        new moodle_url('/local/aiconnect/admin/tokens.php', [
+            'userid' => $userid ?: '', 'clientid' => $clientid, 'status' => $status, 'page' => $page,
+        ]),
+        get_string('mytokens_revoked_bulk_ok', 'local_aiconnect', $count),
+        null,
+        \core\output\notification::NOTIFY_SUCCESS
+    );
 }
 
 $PAGE->set_url('/local/aiconnect/admin/tokens.php');

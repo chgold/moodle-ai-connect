@@ -40,7 +40,6 @@ defined('MOODLE_INTERNAL') || die();
  *    expired 90d, hard-delete revoked 365d).
  */
 class cleanup_expired_tokens extends scheduled_task {
-
     /** @var int Grace window in seconds before deleting expired tokens (7 days). */
     private const GRACE_SECONDS = 7 * DAYSECS;
 
@@ -67,8 +66,11 @@ class cleanup_expired_tokens extends scheduled_task {
         try {
             $DB->delete_records_select('local_aiconnect_tokens', 'expiry < :cutoff', ['cutoff' => $cutoff]);
             $DB->delete_records_select('local_aiconnect_codes', 'used = 1 OR expiry < :now', ['now' => $now]);
-            $DB->delete_records_select('local_aiconnect_ratelimits',
-                'windowstart < :cutoff', ['cutoff' => $now - HOURSECS]);
+            $DB->delete_records_select(
+                'local_aiconnect_ratelimits',
+                'windowstart < :cutoff',
+                ['cutoff' => $now - HOURSECS]
+            );
             $transaction->allow_commit();
         } catch (\Throwable $e) {
             $transaction->rollback($e instanceof \Exception ? $e : new \Exception($e->getMessage()));
@@ -83,7 +85,10 @@ class cleanup_expired_tokens extends scheduled_task {
         if (!defined('PHPUNIT_TEST') || !PHPUNIT_TEST) {
             mtrace(sprintf(
                 'local_aiconnect: cleanup_expired_tokens complete. Registry: unused=%d inactive=%d expired=%d deleted=%d',
-                $summary['unused'], $summary['inactive'], $summary['expired'], $summary['deleted']
+                $summary['unused'],
+                $summary['inactive'],
+                $summary['expired'],
+                $summary['deleted']
             ));
         }
     }

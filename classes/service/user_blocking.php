@@ -34,7 +34,6 @@ defined('MOODLE_INTERNAL') || die();
  * Static helpers for managing the AI Connect user-block list.
  */
 class user_blocking {
-
     /**
      * Block a Moodle user from accessing the AI Connect API.
      *

@@ -36,7 +36,6 @@ defined('MOODLE_INTERNAL') || die();
  * installed side-by-side; only those with class_exists() succeed load.
  */
 class pro_loader {
-
     /**
      * Known Pro plugin module descriptors, in load order.
      *

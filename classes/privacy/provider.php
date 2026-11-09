@@ -42,7 +42,6 @@ class provider implements
     \core_privacy\local\metadata\provider,
     \core_privacy\local\request\plugin\provider,
     \core_privacy\local\request\core_userlist_provider {
-
     /**
      * Describe the tables that store personal data.
      *
@@ -73,8 +72,10 @@ class provider implements
     public static function get_contexts_for_userid(int $userid): contextlist {
         $list = new contextlist();
         global $DB;
-        if ($DB->record_exists('local_aiconnect_tokens', ['userid' => $userid])
-            || $DB->record_exists('local_aiconnect_codes', ['userid' => $userid])) {
+        if (
+            $DB->record_exists('local_aiconnect_tokens', ['userid' => $userid])
+            || $DB->record_exists('local_aiconnect_codes', ['userid' => $userid])
+        ) {
             $list->add_system_context();
         }
         return $list;
@@ -104,8 +105,12 @@ class provider implements
             return;
         }
         $userid = $contextlist->get_user()->id;
-        $tokens = $DB->get_records('local_aiconnect_tokens', ['userid' => $userid],
-            'timecreated ASC', 'id,tokentype,client_id,scope,timecreated,expiry,revoked');
+        $tokens = $DB->get_records(
+            'local_aiconnect_tokens',
+            ['userid' => $userid],
+            'timecreated ASC',
+            'id,tokentype,client_id,scope,timecreated,expiry,revoked'
+        );
         if ($tokens) {
             writer::with_context(context_system::instance())
                 ->export_data(['local_aiconnect', 'tokens'], (object) ['tokens' => array_values($tokens)]);

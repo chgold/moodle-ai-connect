@@ -38,8 +38,13 @@ defined('MOODLE_INTERNAL') || die();
  * @param \context_course   $coursecontext Course context object.
  * @return void
  */
-function local_aiconnect_extend_navigation_user(\navigation_node $parentnode, \stdClass $user,
-        \context_user $context, \stdClass $course, \context_course $coursecontext): void {
+function local_aiconnect_extend_navigation_user(
+    \navigation_node $parentnode,
+    \stdClass $user,
+    \context_user $context,
+    \stdClass $course,
+    \context_course $coursecontext
+): void {
 
     global $USER;
 

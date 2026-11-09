@@ -33,7 +33,6 @@ defined('MOODLE_INTERNAL') || die();
  * Produces the JSON manifest published at /local/aiconnect/manifest.php.
  */
 class manifest_controller {
-
     /** @var module_registry Source of truth for the tool catalogue. */
     private module_registry $registry;
 

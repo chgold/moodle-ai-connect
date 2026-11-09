@@ -34,7 +34,6 @@ defined('MOODLE_INTERNAL') || die();
  * the plugin-scoped key + caches the slug-matched status per plugin.
  */
 class license_client {
-
     /** @var string Default license validation endpoint. */
     private const API_URL = 'https://goldnat.ai/api/licenses/public/validate';
 
@@ -82,8 +81,10 @@ class license_client {
         }
 
         $cached = self::read_cache($component);
-        if ($cached !== null && isset($cached['checked_at'])
-                && (time() - (int)$cached['checked_at']) < self::CACHE_TTL) {
+        if (
+            $cached !== null && isset($cached['checked_at'])
+                && (time() - (int)$cached['checked_at']) < self::CACHE_TTL
+        ) {
             return self::grants($cached, $expected_slug);
         }
 

@@ -94,7 +94,7 @@ function aiconnect_seed_course(string $shortname, string $fullname): \stdClass {
         'shortname'    => $shortname,
         'category'     => 1,
         'summary'      => $fullname . ' — sample course for AI Connect end to end tests.',
-        'summaryformat'=> FORMAT_HTML,
+        'summaryformat' => FORMAT_HTML,
         'visible'      => 1,
         'startdate'    => time(),
     ]);

@@ -34,7 +34,6 @@ defined('MOODLE_INTERNAL') || die();
  * tools_controller directly.
  */
 class tools_controller {
-
     /** @var module_registry Tool dispatcher. */
     private module_registry $registry;
 

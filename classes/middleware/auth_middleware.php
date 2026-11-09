@@ -34,7 +34,6 @@ defined('MOODLE_INTERNAL') || die();
  * HTTP middleware for tool endpoints.
  */
 class auth_middleware {
-
     /** @var int Default per-minute rate limit. */
     private const DEFAULT_MINUTE_LIMIT = 50;
 
@@ -99,9 +98,11 @@ class auth_middleware {
      * @param string $token Bearer token of the caller.
      */
     public static function check_rate_limit(string $token): void {
-        self::enforce_window($token,
+        self::enforce_window(
+            $token,
             (int) (get_config('local_aiconnect', 'ratelimit_minute') ?: self::DEFAULT_MINUTE_LIMIT),
-            (int) (get_config('local_aiconnect', 'ratelimit_hour') ?: self::DEFAULT_HOUR_LIMIT));
+            (int) (get_config('local_aiconnect', 'ratelimit_hour') ?: self::DEFAULT_HOUR_LIMIT)
+        );
     }
 
     /**
@@ -147,8 +148,12 @@ class auth_middleware {
                         'limit'  => $limit,
                     ]);
                 }
-                $DB->set_field('local_aiconnect_ratelimits', 'requestcount',
-                    (int) $rec->requestcount + 1, ['id' => $rec->id]);
+                $DB->set_field(
+                    'local_aiconnect_ratelimits',
+                    'requestcount',
+                    (int) $rec->requestcount + 1,
+                    ['id' => $rec->id]
+                );
                 continue;
             }
 

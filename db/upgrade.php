@@ -40,7 +40,6 @@ function xmldb_local_aiconnect_upgrade(int $oldversion): bool {
     $dbman = $DB->get_manager();
 
     if ($oldversion < 2026051000) {
-
         $table = new xmldb_table('local_aiconnect_clients');
         $index = new xmldb_index('client_id_idx', XMLDB_INDEX_UNIQUE, ['client_id']);
         if ($dbman->table_exists($table) && !$dbman->index_exists($table, $index)) {
@@ -49,11 +48,13 @@ function xmldb_local_aiconnect_upgrade(int $oldversion): bool {
 
         $table = new xmldb_table('local_aiconnect_codes');
         if ($dbman->table_exists($table)) {
-            foreach ([
+            foreach (
+                [
                 new xmldb_index('code_idx', XMLDB_INDEX_UNIQUE, ['code']),
                 new xmldb_index('userid_idx', XMLDB_INDEX_NOTUNIQUE, ['userid']),
                 new xmldb_index('expiry_idx', XMLDB_INDEX_NOTUNIQUE, ['expiry']),
-            ] as $index) {
+                ] as $index
+            ) {
                 if (!$dbman->index_exists($table, $index)) {
                     $dbman->add_index($table, $index);
                 }
@@ -62,12 +63,14 @@ function xmldb_local_aiconnect_upgrade(int $oldversion): bool {
 
         $table = new xmldb_table('local_aiconnect_tokens');
         if ($dbman->table_exists($table)) {
-            foreach ([
+            foreach (
+                [
                 new xmldb_index('token_idx', XMLDB_INDEX_UNIQUE, ['token']),
                 new xmldb_index('userid_idx', XMLDB_INDEX_NOTUNIQUE, ['userid']),
                 new xmldb_index('expiry_idx', XMLDB_INDEX_NOTUNIQUE, ['expiry']),
                 new xmldb_index('tokentype_revoked_idx', XMLDB_INDEX_NOTUNIQUE, ['tokentype', 'revoked']),
-            ] as $index) {
+                ] as $index
+            ) {
                 if (!$dbman->index_exists($table, $index)) {
                     $dbman->add_index($table, $index);
                 }
@@ -76,10 +79,12 @@ function xmldb_local_aiconnect_upgrade(int $oldversion): bool {
 
         $table = new xmldb_table('local_aiconnect_ratelimits');
         if ($dbman->table_exists($table)) {
-            foreach ([
+            foreach (
+                [
                 new xmldb_index('token_window_idx', XMLDB_INDEX_UNIQUE, ['token', 'windowtype']),
                 new xmldb_index('windowstart_idx', XMLDB_INDEX_NOTUNIQUE, ['windowstart']),
-            ] as $index) {
+                ] as $index
+            ) {
                 if (!$dbman->index_exists($table, $index)) {
                     $dbman->add_index($table, $index);
                 }
@@ -90,7 +95,6 @@ function xmldb_local_aiconnect_upgrade(int $oldversion): bool {
     }
 
     if ($oldversion < 2026051100) {
-
         $table = new xmldb_table('local_aiconnect_token_registry');
         if (!$dbman->table_exists($table)) {
             $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
@@ -115,11 +119,12 @@ function xmldb_local_aiconnect_upgrade(int $oldversion): bool {
     }
 
     if ($oldversion < 2026051300) {
-
         // Seed the canonical webmcp-master OAuth client on existing installs.
         $table = new xmldb_table('local_aiconnect_clients');
-        if ($dbman->table_exists($table)
-            && !$DB->record_exists('local_aiconnect_clients', ['client_id' => 'webmcp-master'])) {
+        if (
+            $dbman->table_exists($table)
+            && !$DB->record_exists('local_aiconnect_clients', ['client_id' => 'webmcp-master'])
+        ) {
             $DB->insert_record('local_aiconnect_clients', (object) [
                 'client_id'     => 'webmcp-master',
                 'client_name'   => 'WebMCP Master',
@@ -133,7 +138,6 @@ function xmldb_local_aiconnect_upgrade(int $oldversion): bool {
     }
 
     if ($oldversion < 2026052500) {
-
         $table = new xmldb_table('local_aiconnect_token_registry');
 
         // Add last_used_ip column.
@@ -170,7 +174,6 @@ function xmldb_local_aiconnect_upgrade(int $oldversion): bool {
     }
 
     if ($oldversion < 2026060700) {
-
         $table = new xmldb_table('local_aiconnect_blocked');
         if (!$dbman->table_exists($table)) {
             $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
