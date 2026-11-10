@@ -116,7 +116,10 @@ abstract class module_base {
 
         $tool = $this->tools[$toolname];
         $scope = (string) ($context['scope'] ?? 'read');
-        if ($tool['required_scope'] === 'write' && !str_contains($scope, 'write')) {
+        // Any non-read tool ('write', 'admin', 'delete', ...) needs a write-capable
+        // scope. Comparing only === 'write' let tools registered as 'admin' run
+        // with a read-only token.
+        if ($tool['required_scope'] !== 'read' && !preg_match('/\b(write|admin)\b/', $scope)) {
             return ['error' => 'insufficient_scope',
                     'message' => 'This tool requires write scope (Pro tier).'];
         }
