@@ -491,7 +491,10 @@ class token_registry {
 
             set_config(self::LAST_CLEANUP_KEY, $now, 'local_aiconnect');
 
-            if (!defined('PHPUNIT_TEST') || !PHPUNIT_TEST) {
+            // Only report on the CLI (scheduled task). The lazy daily cleanup
+            // also runs inside a normal API request, where mtrace() would
+            // print this line in front of the JSON body and break the response.
+            if ((!defined('PHPUNIT_TEST') || !PHPUNIT_TEST) && defined('CLI_SCRIPT') && CLI_SCRIPT) {
                 mtrace(sprintf(
                     'local_aiconnect token_registry cleanup: unused=%d inactive=%d expired=%d deleted=%d',
                     $summary['unused'],

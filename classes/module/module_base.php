@@ -65,7 +65,9 @@ abstract class module_base {
             'name'                => $fullname,
             'description'         => $config['description'] ?? '',
             'input_schema'        => $config['input_schema'] ?? ['type' => 'object', 'properties' => new \stdClass()],
-            'required_scope'      => $config['required_scope'] ?? 'read',
+            // Fail closed (SEC-02): a tool without a declared scope is a
+            // write tool, so a read-only token never reaches it by accident.
+            'required_scope'      => self::normalise_scope($config['required_scope'] ?? null),
             'pro_only'            => $config['pro_only'] ?? false,
             'requires_capability' => $config['requires_capability'] ?? null,
         ];
@@ -115,7 +117,8 @@ abstract class module_base {
         }
 
         $tool = $this->tools[$toolname];
-        $scope = (string) ($context['scope'] ?? 'read');
+        // No scope in the context means no grant at all (fail closed).
+        $scope = (string) ($context['scope'] ?? '');
         // Any non-read tool ('write', 'admin', 'delete', ...) needs a write-capable
         // scope. Comparing only === 'write' let tools registered as 'admin' run
         // with a read-only token.
@@ -170,10 +173,23 @@ abstract class module_base {
      * before executing them.
      *
      * @param string $shortname Short tool name (without module prefix).
-     * @return string 'read' or 'write'; defaults to 'read' for unknown tools.
+     * @return string The declared scope; 'write' for unknown tools (fail closed).
      */
     public function get_tool_scope(string $shortname): string {
-        return $this->tools[$shortname]['required_scope'] ?? 'read';
+        return $this->tools[$shortname]['required_scope'] ?? 'write';
+    }
+
+    /**
+     * Normalise a declared scope; anything missing or empty becomes 'write'.
+     *
+     * @param mixed $scope Declared required_scope.
+     * @return string Scope name.
+     */
+    public static function normalise_scope($scope): string {
+        if (!is_string($scope) || trim($scope) === '') {
+            return 'write';
+        }
+        return trim($scope);
     }
 
     /**

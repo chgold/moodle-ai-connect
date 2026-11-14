@@ -77,6 +77,36 @@ final class module_base_test_fixture extends module_base {
 }
 
 /**
+ * Test double whose only tool forgets to declare required_scope.
+ */
+final class module_base_test_undeclared_fixture extends module_base {
+
+    /** @var string Tool namespace prefix. */
+    protected string $module_name = 'test';
+
+    /**
+     * Register one tool without a scope declaration.
+     */
+    protected function register_tools(): void {
+        $this->register_tool('mutate', [
+            'description'  => 'Mutates, but forgot its scope',
+            'input_schema' => ['type' => 'object', 'properties' => new \stdClass()],
+        ]);
+    }
+
+    /**
+     * Must never run for a read-only token.
+     *
+     * @param array $params  Request body.
+     * @param array $context Request context.
+     * @return array Marker.
+     */
+    protected function execute_mutate(array $params, array $context = []): array {
+        return ['ran' => true];
+    }
+}
+
+/**
  * @covers \local_aiconnect\module\module_base
  */
 final class module_base_test extends \advanced_testcase {
@@ -145,5 +175,23 @@ final class module_base_test extends \advanced_testcase {
         $this->assertArrayHasKey('ping', $readonly);
         $this->assertArrayNotHasKey('write', $readonly);
         $this->assertCount(2, $full);
+    }
+
+    /**
+     * An undeclared scope fails closed (SEC-02): the tool is treated as write.
+     */
+    public function test_undeclared_scope_fails_closed(): void {
+        $this->resetAfterTest();
+        $module = new module_base_test_undeclared_fixture();
+
+        $this->assertSame('write', $module->get_tool_scope('mutate'));
+        $this->assertSame('write', $module->get_tool_scope('unknown'));
+        $this->assertArrayNotHasKey('mutate', $module->get_tools('read'));
+        $result = $module->execute_tool('mutate', [], ['userid' => 1, 'scope' => 'read']);
+        $this->assertSame('insufficient_scope', $result['error']);
+        $result = $module->execute_tool('mutate', [], ['userid' => 1]);
+        $this->assertSame('insufficient_scope', $result['error']);
+        $result = $module->execute_tool('mutate', [], ['userid' => 1, 'scope' => 'read write']);
+        $this->assertTrue($result['ran']);
     }
 }

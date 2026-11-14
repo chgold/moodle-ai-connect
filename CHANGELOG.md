@@ -4,6 +4,23 @@ All notable changes to `local_aiconnect` are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 semantic versioning.
 
+## [2.2.4] — 2026-11-15
+
+### Security
+- **Fail-closed scope (SEC-02, audit M1).** A tool registered without
+  `required_scope` is now treated as `write` instead of `read`, so a read-only
+  token can never reach it because a declaration was forgotten (all current
+  tools already declare one). `get_tool_scope()` answers `write` for unknown
+  tools, and a request context without a scope grants nothing.
+
+### Fixed
+- The lazy daily token cleanup printed its summary line (mtrace) in front of
+  the JSON body of the API request that triggered it, breaking that response.
+  It now reports only on the CLI.
+
+### Tests
+- `tests/module_base_test.php`: `test_undeclared_scope_fails_closed`.
+
 ## [2.2.2] — 2026-11-09
 
 ### Security
