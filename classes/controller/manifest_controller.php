@@ -118,7 +118,7 @@ class manifest_controller {
         return [
             'schema_version' => '1.0',
             'name'           => 'moodle-plugin',
-            'version'        => '2.2.1',
+            'version'        => $this->plugin_release(),
             'description'    => 'AI Connect for Moodle — access courses, grades, assignments and manage learning via AI agents',
             'api_version'    => 'v1',
             'capabilities'   => ['tools' => true, 'resources' => false, 'prompts' => false],
@@ -129,5 +129,15 @@ class manifest_controller {
             'auth'  => $auth,
             'tools' => $this->registry->get_all_tools('read write'),
         ];
+    }
+
+    /**
+     * Release string of this plugin, read from version.php (never hardcoded).
+     *
+     * @return string
+     */
+    private function plugin_release(): string {
+        $info = \core_plugin_manager::instance()->get_plugin_info('local_aiconnect');
+        return ($info && !empty($info->release)) ? (string) $info->release : '';
     }
 }
