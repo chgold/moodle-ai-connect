@@ -1,2 +1,9 @@
 *.DS_Store
 /dist/
+
+# never commit credentials (SECURITY-LEAKED-TEST-CREDS-2026-11-15)
+TEST_CREDENTIALS*
+*CREDENTIAL*
+*SECRET*
+.env
+.env.*
