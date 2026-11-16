@@ -1,33 +1,53 @@
-# AI Connect for Moodle (`local_aiconnect`)
+# Goldnat AI Connect for Moodle (`local_aiconnect`)
 
-> WebMCP server that lets AI agents (Claude, ChatGPT, Gemini, Copilot, Grok,
-> Perplexity, …) talk to your Moodle site over OAuth 2 + PKCE.
+> Lets AI agents (Claude, ChatGPT, Gemini, Copilot, Grok, Perplexity, Meta AI,
+> DeepSeek, …) read your Moodle site over OAuth 2.0 + PKCE, **as the user who
+> approved them** and with that user's Moodle permissions. Tools are published
+> in a JSON manifest (the open [Servio](https://github.com/chgold/servio)
+> protocol), so no per-agent setup is needed.
 
 - **Component:** `local_aiconnect`
 - **Type:** local plugin
-- **Compatibility:** Moodle **4.3+** (`$plugin->requires = 2023100900`)
+- **Compatibility:** Moodle **4.3+** (`$plugin->requires = 2023100900`). Tested on Moodle 4.4 (MariaDB).
 - **Maturity:** `MATURITY_STABLE`
-- **Release:** `2.2.2`
-- **License:** GNU GPL v3 or later
+- **Release:** `2.2.5`
+- **License:** GNU GPL v3 or later (see `LICENSE`)
+- **Edition:** free. All tools in this plugin are **read-only**.
+
+This plugin is the reverse of Moodle's built-in AI subsystem: it does not add
+AI features inside Moodle. It gives an external assistant, chosen by the user,
+controlled read access to Moodle.
 
 ---
 
-## Features
+## Tools (35, all `read` scope)
 
-| Tier | Tool | Scope | Description |
-|------|------|-------|-------------|
-| Free | `moodle.getCourses` | `read` | List courses the caller is enrolled in |
-| Free | `moodle.getCourse` | `read` | Single course details |
-| Free | `moodle.getEnrollments` | `read` | Courses the user is enrolled in |
-| Free | `moodle.getAssignments` | `read` | Assignments inside a course |
-| Free | `moodle.getGrades` | `read` | Grades for the caller in a course |
-| Free | `moodle.getUserProfile` | `read` | Profile of the calling user |
-| Pro  | `moodle.enrollUser` | `write` | Enrol a user into a course |
-| Pro  | `moodle.createAssignment` | `write` | Create a new assignment |
-| Pro  | `moodle.submitGrade` | `write` | Save a grade for an assignment |
-| Pro  | `moodle.sendMessage` | `write` | Send a message via Moodle messaging |
-| Pro  | `moodle.updateCourse` | `write` | Update course fullname/summary |
-| Pro  | `moodle.searchUsers` | `write` | Search users by name or email |
+Every call runs as the token owner and goes through Moodle's own capability
+and visibility checks (`require_login`-equivalent, `cm_info::uservisible`,
+module `:view` capabilities). A student's agent sees that student's courses
+and grades, not anyone else's.
+
+| Module | Tools |
+|--------|-------|
+| `moodle` (core, 6) | `getCourses`, `getCourse`, `getEnrollments`, `getAssignments`, `getGrades`, `getUserProfile` |
+| `content` (7) | `getCourseModules`, `getModuleContent`, `getCourseFiles`, `downloadCourseFile`, `getForumDiscussions`, `getForumPosts`, `searchForumPosts` |
+| `bigbluebutton` (10) — only if `mod_bigbluebuttonbn` is installed | `listCourseMeetings`, `searchMeetings`, `getMeetingDetails`, `getMeetingStatus`, `getMeetingParticipants`, `getJoinUrl`, `getMeetingAttendanceReport`, `listRecordings`, `getRecordingDetails`, `getRecordingPlaybackUrl` |
+| `hvp` (12) — only if the H5P activity module (`mod_h5pactivity`) is enabled | `getContentByCourse`, `getContent`, `searchContent`, `getContentByType`, `listContentTypes`, `getContentParameters`, `getContentEmbedCode`, `getContentResults`, `getUserAttempts`, `getAttemptDetails`, `getCourseAnalytics`, `exportContent` |
+
+Tools that depend on a missing activity module are left out of the manifest
+entirely, and a direct call returns `424 Failed Dependency`.
+
+### Paid add-ons (separate plugins, yearly licence)
+
+Write tools live in separate plugins that require this one:
+
+| Plugin | Component | For |
+|--------|-----------|-----|
+| Goldnat AI Connect Teacher | `local_aiconnectteacher` | gradebook, assignments, enrolments, course content |
+| Goldnat AI Connect Student | `local_aiconnectstudent` | own deadlines, submissions, feedback, profile |
+| Goldnat AI Connect Admin | `local_aiconnectadmin` | site administration tasks |
+
+Details: <https://plugins.goldnat.ai/moodle>
 
 ---
 
@@ -71,7 +91,7 @@ Defined in `db/access.php`:
 
 | Method | URL | Purpose |
 |--------|-----|---------|
-| `GET`  | `/local/aiconnect/manifest.php` | WebMCP manifest (public) |
+| `GET`  | `/local/aiconnect/manifest.php` | Servio manifest (public) |
 | `GET`  | `/local/aiconnect/info.php` | Human-readable info & token generator |
 | `GET`/`POST` | `/local/aiconnect/oauth.php?action=authorize` | OAuth 2 consent |
 | `POST` | `/local/aiconnect/oauth.php?action=token` | Token grant |
@@ -103,11 +123,6 @@ curl -s -X POST "http://localhost:8088/local/aiconnect/v1/tools/moodle.getUserPr
   -H "Authorization: Bearer $TOKEN" \
   -d '{}' | jq .
 
-# 5. Pro tool — enroll a user (requires write scope)
-curl -s -X POST "http://localhost:8088/local/aiconnect/v1/tools/moodle.enrollUser" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"userid": 7, "courseid": 2, "roleid": 5}' | jq .
 ```
 
 ---
@@ -151,6 +166,19 @@ local_aiconnect_ratelimits     Per-token rate-limit counters
   ├─ windowstart
   └─ requestcount
   UNIQUE(token, windowtype)
+
+local_aiconnect_token_registry Audit list of issued tokens (admin list + "My AI tokens")
+  ├─ token_prefix  (first 16 chars only — never the full token)
+  ├─ user_id       (FK → mdl_user.id)
+  ├─ client_id, scope, source
+  ├─ issued_at, expires_at, last_used_at
+  ├─ ip_address, last_used_ip, last_used_ua
+  └─ revoked_at, revoked_by
+
+local_aiconnect_blocked        Users an admin blocked from the API
+  ├─ userid
+  ├─ blockedby
+  └─ timecreated
 ```
 
 A scheduled task (`\local_aiconnect\task\cleanup_expired_tokens`) runs daily
@@ -172,9 +200,10 @@ rate-limit rows.
 | Transactions | All multi-row writes use `$DB->start_delegated_transaction()` |
 | Rate limit | DB-backed, per-token, minute + hour windows |
 | Input validation | Moodle `PARAM_*` cleaners on every tool parameter |
-| Pro tools | Refused unless scope contains `write` |
+| Write tools (add-ons) | Refused unless the token scope contains `write`; a tool without a declared scope is treated as `write` (fail-closed) |
 | Permission ceiling (SEC-00) | Security: H5P / BigBlueButton tools return only what the user sees natively — hidden/restricted activities filtered (`cm_info::uservisible`), attempts own-only without `mod/h5pactivity:reviewattempts`, BBB attendance needs course report capability, join honours `:join`, groups and opening/closing time (2.2.2) |
-| Privacy | `\local_aiconnect\privacy\provider` exports/deletes user data (GDPR) |
+| Privacy | `\local_aiconnect\privacy\provider` declares, exports and deletes every table with personal data: codes, tokens, rate-limit counters, the token registry (incl. IP address and user agent) and the block list (2.2.5) |
+| External services | None, unless a paid add-on licence key is entered: then the key and the site URL are checked against `goldnat.ai`. No user data leaves the site |
 | Cleanup | Daily scheduled task purges expired tokens & codes |
 | Uninstall | `db/uninstall.php` drops every plugin table cleanly |
 
@@ -196,6 +225,12 @@ vendor/bin/phpunit --filter local_aiconnect
 ```
 
 ---
+
+## Support
+
+- Bugs and questions: <https://github.com/chgold/moodle-ai-connect/issues>
+- Security issues: see `SECURITY.md` (please do not open a public issue)
+- Documentation: <https://plugins.goldnat.ai/moodle>
 
 ## Repository
 

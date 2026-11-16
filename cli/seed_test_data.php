@@ -29,7 +29,8 @@
 
 define('CLI_SCRIPT', true);
 
-$moodleroot = getenv('MOODLE_ROOT') ?: '/workspace/platforms/moodle';
+// Run from the Moodle root (php local/aiconnect/cli/seed_test_data.php) or set MOODLE_ROOT.
+$moodleroot = getenv('MOODLE_ROOT') ?: getcwd();
 require($moodleroot . '/config.php');
 require_once($CFG->libdir . '/clilib.php');
 require_once($CFG->dirroot . '/user/lib.php');
@@ -53,8 +54,13 @@ cli_writeln('==============================');
  * @param array $created Collects username => password for users created in this run.
  * @return \stdClass User record.
  */
-function aiconnect_seed_user(string $username, string $firstname, string $lastname, string $password,
-        array &$created): \stdClass {
+function aiconnect_seed_user(
+    string $username,
+    string $firstname,
+    string $lastname,
+    string $password,
+    array &$created
+): \stdClass {
     global $DB, $CFG;
 
     $existing = $DB->get_record('user', ['username' => $username, 'deleted' => 0]);

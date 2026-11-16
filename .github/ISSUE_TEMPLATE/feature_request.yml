@@ -1,0 +1,14 @@
+name: Feature request
+description: Suggest a new tool or an improvement.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What do you want an AI agent to be able to do in Moodle?
+    validations:
+      required: true
+  - type: textarea
+    id: who
+    attributes:
+      label: Who would use it (student, teacher, admin)?

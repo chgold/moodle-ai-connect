@@ -4,6 +4,28 @@ All notable changes to `local_aiconnect` are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 semantic versioning.
 
+## [2.2.5] — 2026-11-16
+
+### Privacy
+- **Privacy API now covers every table with personal data.** The provider
+  also declares, exports and deletes `local_aiconnect_token_registry`
+  (`user_id`, issue IP address, last-used IP address and user agent,
+  `revoked_by`) and `local_aiconnect_blocked` (`userid`, `blockedby`), and
+  declares `local_aiconnect_ratelimits`. Deleting a user also removes the
+  rate-limit counters of that user's tokens. When the deleted user is an admin
+  who revoked tokens or blocked users, those fields are set to NULL instead of
+  deleting the other user's record. Token values and prefixes are never
+  exported.
+
+### Documentation
+- README rewritten for the current release: the 35 read-only tools, the
+  paid add-ons as separate plugins, the full database schema and support
+  links. Added `LICENSE` (GPL v3), `SECURITY.md` and GitHub issue templates.
+
+### Tests
+- `tests/privacy_provider_test.php`: metadata, contexts, user list, export and
+  delete (single user, user list, whole context).
+
 ## [2.2.4] — 2026-11-15
 
 ### Security
@@ -74,7 +96,7 @@ Production hardening release. Closes 12 audit findings.
   every public class and method (Moodle PHPCS-compliant).
 
 ### Changed
-- Bootstrap: `require_once('/workspace/platforms/moodle/config.php')` →
+- Bootstrap: a hardcoded absolute `config.php` path →
   portable `require(__DIR__ . '/../../config.php')` everywhere.
 - Default CORS replaced from `Access-Control-Allow-Origin: *` to the
   configurable whitelist (disabled by default).

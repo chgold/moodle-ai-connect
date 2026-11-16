@@ -54,6 +54,15 @@ $string['privacy:metadata:local_aiconnect_token_registry:user_id']        = 'The
 $string['privacy:metadata:local_aiconnect_token_registry:ip_address']     = 'Client IP address recorded at the moment of issuance.';
 $string['privacy:metadata:local_aiconnect_token_registry:last_used_ip']   = 'Client IP address of the most recent successful API call.';
 $string['privacy:metadata:local_aiconnect_token_registry:last_used_ua']   = 'User-Agent string of the most recent successful API call.';
+$string['privacy:metadata:local_aiconnect_token_registry:issued_at']      = 'When the token was issued.';
+$string['privacy:metadata:local_aiconnect_token_registry:last_used_at']   = 'When the token was last used.';
+$string['privacy:metadata:local_aiconnect_token_registry:revoked_by']     = 'The user (admin or token owner) who revoked the token.';
+$string['privacy:metadata:local_aiconnect_ratelimits:token']              = 'The token the request counter belongs to.';
+$string['privacy:metadata:local_aiconnect_ratelimits:requestcount']       = 'Number of API requests made with the token in the current time window.';
+$string['privacy:metadata:local_aiconnect_blocked']                       = 'Users an administrator has blocked from the AI Connect API.';
+$string['privacy:metadata:local_aiconnect_blocked:userid']                = 'The blocked Moodle user.';
+$string['privacy:metadata:local_aiconnect_blocked:blockedby']             = 'The administrator who blocked the user.';
+$string['privacy:metadata:local_aiconnect_blocked:timecreated']           = 'When the user was blocked.';
 
 // My Tokens user page.
 $string['mytokens_heading']            = 'My AI Connect Tokens';

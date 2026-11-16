@@ -28,15 +28,26 @@ use core_privacy\local\metadata\collection;
 use core_privacy\local\request\contextlist;
 use core_privacy\local\request\approved_contextlist;
 use core_privacy\local\request\approved_userlist;
+use core_privacy\local\request\transform;
 use core_privacy\local\request\userlist;
 use core_privacy\local\request\writer;
 use context;
 use context_system;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Implements GDPR metadata, export and delete handlers for AI Connect data.
+ *
+ * All data lives in the system context. Tables with personal data:
+ *  - local_aiconnect_codes          (userid)
+ *  - local_aiconnect_tokens         (userid)
+ *  - local_aiconnect_ratelimits     (keyed by token, removed with the user's tokens)
+ *  - local_aiconnect_token_registry (user_id, ip_address, last_used_ip, last_used_ua, revoked_by)
+ *  - local_aiconnect_blocked        (userid, blockedby)
+ *
+ * Fields that record an admin acting on another user (registry.revoked_by,
+ * blocked.blockedby) belong to that admin too: they are exported as actions
+ * (without the other user's details) and anonymised (set to NULL) on delete,
+ * so the other user's record is kept.
  */
 class provider implements
     \core_privacy\local\metadata\provider,
@@ -60,6 +71,29 @@ class provider implements
             'client_id' => 'privacy:metadata:local_aiconnect_clients:client_id',
         ], 'privacy:metadata:local_aiconnect_tokens');
 
+        $collection->add_database_table('local_aiconnect_ratelimits', [
+            'token'        => 'privacy:metadata:local_aiconnect_ratelimits:token',
+            'requestcount' => 'privacy:metadata:local_aiconnect_ratelimits:requestcount',
+        ], 'privacy:metadata:local_aiconnect_ratelimits');
+
+        $collection->add_database_table('local_aiconnect_token_registry', [
+            'user_id'      => 'privacy:metadata:local_aiconnect_token_registry:user_id',
+            'client_id'    => 'privacy:metadata:local_aiconnect_clients:client_id',
+            'scope'        => 'privacy:metadata:local_aiconnect_tokens:scope',
+            'issued_at'    => 'privacy:metadata:local_aiconnect_token_registry:issued_at',
+            'last_used_at' => 'privacy:metadata:local_aiconnect_token_registry:last_used_at',
+            'ip_address'   => 'privacy:metadata:local_aiconnect_token_registry:ip_address',
+            'last_used_ip' => 'privacy:metadata:local_aiconnect_token_registry:last_used_ip',
+            'last_used_ua' => 'privacy:metadata:local_aiconnect_token_registry:last_used_ua',
+            'revoked_by'   => 'privacy:metadata:local_aiconnect_token_registry:revoked_by',
+        ], 'privacy:metadata:local_aiconnect_token_registry');
+
+        $collection->add_database_table('local_aiconnect_blocked', [
+            'userid'      => 'privacy:metadata:local_aiconnect_blocked:userid',
+            'blockedby'   => 'privacy:metadata:local_aiconnect_blocked:blockedby',
+            'timecreated' => 'privacy:metadata:local_aiconnect_blocked:timecreated',
+        ], 'privacy:metadata:local_aiconnect_blocked');
+
         return $collection;
     }
 
@@ -70,11 +104,15 @@ class provider implements
      * @return contextlist
      */
     public static function get_contexts_for_userid(int $userid): contextlist {
-        $list = new contextlist();
         global $DB;
+        $list = new contextlist();
         if (
             $DB->record_exists('local_aiconnect_tokens', ['userid' => $userid])
             || $DB->record_exists('local_aiconnect_codes', ['userid' => $userid])
+            || $DB->record_exists('local_aiconnect_token_registry', ['user_id' => $userid])
+            || $DB->record_exists('local_aiconnect_token_registry', ['revoked_by' => $userid])
+            || $DB->record_exists('local_aiconnect_blocked', ['userid' => $userid])
+            || $DB->record_exists('local_aiconnect_blocked', ['blockedby' => $userid])
         ) {
             $list->add_system_context();
         }
@@ -92,10 +130,24 @@ class provider implements
         }
         $userlist->add_from_sql('userid', 'SELECT DISTINCT userid FROM {local_aiconnect_tokens}', []);
         $userlist->add_from_sql('userid', 'SELECT DISTINCT userid FROM {local_aiconnect_codes}', []);
+        $userlist->add_from_sql('user_id', 'SELECT DISTINCT user_id FROM {local_aiconnect_token_registry}', []);
+        $userlist->add_from_sql(
+            'revoked_by',
+            'SELECT DISTINCT revoked_by FROM {local_aiconnect_token_registry} WHERE revoked_by IS NOT NULL',
+            []
+        );
+        $userlist->add_from_sql('userid', 'SELECT DISTINCT userid FROM {local_aiconnect_blocked}', []);
+        $userlist->add_from_sql(
+            'blockedby',
+            'SELECT DISTINCT blockedby FROM {local_aiconnect_blocked} WHERE blockedby IS NOT NULL',
+            []
+        );
     }
 
     /**
      * Export personal data for the given user contexts.
+     *
+     * Token values and token prefixes are never exported (they are credentials).
      *
      * @param approved_contextlist $contextlist Approved contexts.
      */
@@ -104,7 +156,9 @@ class provider implements
         if (!self::contextlist_has_system($contextlist)) {
             return;
         }
-        $userid = $contextlist->get_user()->id;
+        $userid = (int) $contextlist->get_user()->id;
+        $writer = writer::with_context(context_system::instance());
+
         $tokens = $DB->get_records(
             'local_aiconnect_tokens',
             ['userid' => $userid],
@@ -112,8 +166,68 @@ class provider implements
             'id,tokentype,client_id,scope,timecreated,expiry,revoked'
         );
         if ($tokens) {
-            writer::with_context(context_system::instance())
-                ->export_data(['local_aiconnect', 'tokens'], (object) ['tokens' => array_values($tokens)]);
+            $out = [];
+            foreach ($tokens as $t) {
+                $out[] = (object) [
+                    'tokentype'   => $t->tokentype,
+                    'client_id'   => $t->client_id,
+                    'scope'       => $t->scope,
+                    'timecreated' => transform::datetime($t->timecreated),
+                    'expiry'      => transform::datetime($t->expiry),
+                    'revoked'     => transform::yesno($t->revoked),
+                ];
+            }
+            $writer->export_data(['local_aiconnect', 'tokens'], (object) ['tokens' => $out]);
+        }
+
+        $registry = $DB->get_records(
+            'local_aiconnect_token_registry',
+            ['user_id' => $userid],
+            'issued_at ASC',
+            'id,client_id,scope,source,issued_at,expires_at,last_used_at,revoked_at,ip_address,last_used_ip,last_used_ua'
+        );
+        if ($registry) {
+            $out = [];
+            foreach ($registry as $r) {
+                $out[] = (object) [
+                    'client_id'    => $r->client_id,
+                    'scope'        => $r->scope,
+                    'source'       => $r->source,
+                    'issued_at'    => transform::datetime($r->issued_at),
+                    'expires_at'   => transform::datetime($r->expires_at),
+                    'last_used_at' => $r->last_used_at ? transform::datetime($r->last_used_at) : null,
+                    'revoked_at'   => $r->revoked_at ? transform::datetime($r->revoked_at) : null,
+                    'ip_address'   => $r->ip_address,
+                    'last_used_ip' => $r->last_used_ip,
+                    'last_used_ua' => $r->last_used_ua,
+                ];
+            }
+            $writer->export_data(['local_aiconnect', 'token_registry'], (object) ['tokens' => $out]);
+        }
+
+        $revokedcount = $DB->count_records('local_aiconnect_token_registry', ['revoked_by' => $userid]);
+        if ($revokedcount) {
+            $writer->export_data(
+                ['local_aiconnect', 'tokens_revoked_by_you'],
+                (object) ['count' => $revokedcount]
+            );
+        }
+
+        $blocked = $DB->get_record('local_aiconnect_blocked', ['userid' => $userid], 'id,timecreated', IGNORE_MULTIPLE);
+        if ($blocked) {
+            $writer->export_data(
+                ['local_aiconnect', 'blocked'],
+                (object) ['blocked' => transform::yesno(1), 'timecreated' => transform::datetime($blocked->timecreated)]
+            );
+        }
+
+        $blocks = $DB->get_records('local_aiconnect_blocked', ['blockedby' => $userid], 'timecreated ASC', 'id,timecreated');
+        if ($blocks) {
+            $out = [];
+            foreach ($blocks as $b) {
+                $out[] = (object) ['timecreated' => transform::datetime($b->timecreated)];
+            }
+            $writer->export_data(['local_aiconnect', 'blocks_by_you'], (object) ['blocks' => $out]);
         }
     }
 
@@ -130,6 +244,8 @@ class provider implements
         $DB->delete_records('local_aiconnect_tokens', []);
         $DB->delete_records('local_aiconnect_codes', []);
         $DB->delete_records('local_aiconnect_ratelimits', []);
+        $DB->delete_records('local_aiconnect_token_registry', []);
+        $DB->delete_records('local_aiconnect_blocked', []);
     }
 
     /**
@@ -138,13 +254,10 @@ class provider implements
      * @param approved_contextlist $contextlist Approved contexts.
      */
     public static function delete_data_for_user(approved_contextlist $contextlist): void {
-        global $DB;
         if (!self::contextlist_has_system($contextlist)) {
             return;
         }
-        $userid = $contextlist->get_user()->id;
-        $DB->delete_records('local_aiconnect_tokens', ['userid' => $userid]);
-        $DB->delete_records('local_aiconnect_codes', ['userid' => $userid]);
+        self::delete_for_userids([(int) $contextlist->get_user()->id]);
     }
 
     /**
@@ -153,7 +266,6 @@ class provider implements
      * @param approved_userlist $userlist Users to delete.
      */
     public static function delete_data_for_users(approved_userlist $userlist): void {
-        global $DB;
         if (!$userlist->get_context() instanceof context_system) {
             return;
         }
@@ -161,9 +273,31 @@ class provider implements
         if (!$userids) {
             return;
         }
+        self::delete_for_userids($userids);
+    }
+
+    /**
+     * Delete the data of the given users; anonymise their actions on other users.
+     *
+     * @param int[] $userids Moodle user ids.
+     */
+    private static function delete_for_userids(array $userids): void {
+        global $DB;
         [$insql, $params] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED);
+
+        // Rate-limit counters are keyed by token value: remove them before the tokens.
+        $DB->delete_records_select(
+            'local_aiconnect_ratelimits',
+            "token IN (SELECT token FROM {local_aiconnect_tokens} WHERE userid $insql)",
+            $params
+        );
         $DB->delete_records_select('local_aiconnect_tokens', "userid $insql", $params);
         $DB->delete_records_select('local_aiconnect_codes', "userid $insql", $params);
+        $DB->delete_records_select('local_aiconnect_token_registry', "user_id $insql", $params);
+        $DB->delete_records_select('local_aiconnect_blocked', "userid $insql", $params);
+
+        $DB->set_field_select('local_aiconnect_token_registry', 'revoked_by', null, "revoked_by $insql", $params);
+        $DB->set_field_select('local_aiconnect_blocked', 'blockedby', null, "blockedby $insql", $params);
     }
 
     /**
