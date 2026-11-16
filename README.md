@@ -228,7 +228,8 @@ vendor/bin/phpunit --filter local_aiconnect
 
 ## Support
 
-- Bugs and questions: <https://github.com/chgold/moodle-ai-connect/issues>
+- Bugs and questions: please use the contact form at <https://goldnat.ai/contact> (please name the plugin and its version). This is our main channel for bug reports.
+- GitHub issues: <https://github.com/chgold/moodle-ai-connect/issues> are also read, but the contact form gets a faster answer.
 - Security issues: see `SECURITY.md` (please do not open a public issue)
 - Documentation: <https://plugins.goldnat.ai/moodle>
 

@@ -5,7 +5,8 @@ body:
   - type: markdown
     attributes:
       value: |
-        Security problem? Please do not report it here — see SECURITY.md.
+        The fastest way to report a bug is the contact form: https://goldnat.ai/contact
+        Security problem? Please do not report it here — use the contact form or see SECURITY.md.
         Never paste access tokens, licence keys or passwords in an issue.
   - type: input
     id: plugin_version

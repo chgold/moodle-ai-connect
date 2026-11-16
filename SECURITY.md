@@ -8,10 +8,10 @@ Only the latest release of `local_aiconnect` receives security fixes.
 
 Please **do not** open a public GitHub issue for security problems.
 
-Report privately through GitHub's
+Report privately through the contact form at <https://goldnat.ai/contact>
+(mention "security" and the plugin name). You can also use GitHub's
 [private vulnerability reporting](https://github.com/chgold/moodle-ai-connect/security/advisories/new)
-for this repository, or through the contact form at
-<https://goldnat.ai/contact>.
+for this repository.
 
 Please include the plugin version, the Moodle version, the steps to
 reproduce, and the impact you observed. You will get an answer within 7 days.

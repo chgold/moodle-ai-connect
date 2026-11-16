@@ -1,8 +1,11 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Report a bug or ask for help (preferred)
+    url: https://goldnat.ai/contact
+    about: Our contact form is the main channel for bug reports and support questions.
   - name: Report a security vulnerability
-    url: https://github.com/chgold/moodle-ai-connect/security/advisories/new
-    about: Please report security problems privately, not as a public issue.
+    url: https://goldnat.ai/contact
+    about: Please report security problems privately through the contact form, not as a public issue.
   - name: Documentation
     url: https://plugins.goldnat.ai/moodle
     about: Installation and usage guides.
