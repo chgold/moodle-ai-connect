@@ -29,12 +29,20 @@
 
 namespace local_aiconnect\module;
 
+use local_aiconnect\local\confirmation;
+
 defined('MOODLE_INTERNAL') || die();
 
 /**
  * Base class for a self-contained group of WebMCP tools.
  */
 abstract class module_base {
+    /**
+     * @var string Confirmation flow this core supports (Pro add-ons check it before
+     *             relying on the gate; an older core without it must refuse their gated tools).
+     */
+    public const CONFIRMATION_FLOW = 'user-confirm-v1';
+
     /** @var string Module namespace prefix (e.g. "moodle" → "moodle.getCourses"). */
     protected string $module_name = '';
 
@@ -71,6 +79,16 @@ abstract class module_base {
             'pro_only'            => $config['pro_only'] ?? false,
             'requires_capability' => $config['requires_capability'] ?? null,
         ];
+        $scope = $this->tools[$name]['required_scope'];
+        $conf = confirmation::normalise($config['confirmation'] ?? null, $scope);
+        if ($conf !== null) {
+            $this->tools[$name]['confirmation'] = $conf;
+            if ($conf['required'] === true) {
+                $this->tools[$name]['input_schema'] = confirmation::strip_confirm_from_schema(
+                    (array) $this->tools[$name]['input_schema']
+                );
+            }
+        }
     }
 
     /**
@@ -135,6 +153,24 @@ abstract class module_base {
         if (!method_exists($this, $method)) {
             return ['error' => 'tool_not_implemented',
                     'message' => "Tool {$toolname} is registered but has no executor"];
+        }
+
+        // User confirmation (user-confirm-v1): a gated tool runs only after the
+        // token's owner confirmed it on the AI actions page (or granted autonomy).
+        if (!empty($tool['confirmation'])) {
+            try {
+                $answer = confirmation::gate($this, $toolname, $tool, $params, $context);
+            } catch (\Throwable $e) {
+                debugging('local_aiconnect confirmation gate failed: ' . $e->getMessage(), DEBUG_DEVELOPER);
+                return ['error' => 'confirmation_unavailable', 'statusCode' => 503,
+                        'message' => 'The confirmation step is not available; nothing was done.'];
+            }
+            if ($answer !== null) {
+                return $answer;
+            }
+            // Confirmed or autonomous: the agent's own flags are gone; the tool sees confirm=true.
+            $params = confirmation::strip_args($params);
+            $params['confirm'] = true;
         }
 
         try {

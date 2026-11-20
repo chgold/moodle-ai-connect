@@ -82,6 +82,15 @@ class cleanup_expired_tokens extends scheduled_task {
         // Phase 2: token registry lifecycle cleanup (4-rule).
         $summary = token_registry::run_cleanup();
 
+        // Phase 3: confirmation flow — expire waiting actions, drop old decided ones + log rows.
+        try {
+            \local_aiconnect\local\confirmation::cleanup();
+        } catch (\Throwable $e) {
+            if (!defined('PHPUNIT_TEST') || !PHPUNIT_TEST) {
+                mtrace('local_aiconnect cleanup (confirmations) failed: ' . $e->getMessage());
+            }
+        }
+
         if (!defined('PHPUNIT_TEST') || !PHPUNIT_TEST) {
             mtrace(sprintf(
                 'local_aiconnect: cleanup_expired_tokens complete. Registry: unused=%d inactive=%d expired=%d deleted=%d',

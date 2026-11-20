@@ -101,7 +101,17 @@ try {
         }
     }
 
-    $result = $controller->execute($tool, $body, $auth['userid'], $auth['scope']);
+    $result = $controller->execute($tool, $body, $auth['userid'], $auth['scope'], [
+        'clientid'    => $auth['clientid'] ?? '',
+        'tokenprefix' => substr((string) $auth['token'], 0, 16),
+    ]);
+
+    // user-confirm-v1: a gated tool answers 202 with the pending-action envelope.
+    if (($result['error'] ?? '') === 'confirmation_required' && isset($result['envelope'])) {
+        http_response_code(202);
+        echo json_encode($result['envelope'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        exit;
+    }
 
     if (isset($result['error'])) {
         $status = match ($result['error']) {
@@ -109,12 +119,25 @@ try {
             'insufficient_scope'  => 403,
             'failed_dependency'   => 424,
             'missing_param'       => 400,
+            'confirmation_not_found'   => 404,
+            'confirmation_mismatch'    => 409,
+            'confirmation_in_progress' => 409,
+            'confirmation_rejected'    => 410,
+            'confirmation_expired'     => 410,
+            'confirmation_unavailable' => 403,
+            'core_update_required'     => 501,
             default               => 400,
         };
+        if (
+            isset($result['statusCode']) && is_int($result['statusCode'])
+                && $result['statusCode'] >= 400 && $result['statusCode'] < 600
+        ) {
+            $status = $result['statusCode'];
+        }
         http_response_code($status);
     }
 
-    echo json_encode(['success' => !isset($result['error']), 'data' => $result], JSON_UNESCAPED_SLASHES);
+    echo json_encode(['success' => !isset($result['error']), 'data' => $result], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 } catch (\moodle_exception $e) {
     http::json_exit(400, ['error' => 'invalid_request', 'message' => $e->getMessage()]);
 } catch (\Throwable $e) {

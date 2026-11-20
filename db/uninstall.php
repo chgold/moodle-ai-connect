@@ -44,6 +44,10 @@ function xmldb_local_aiconnect_uninstall(): bool {
         'local_aiconnect_tokens',
         'local_aiconnect_codes',
         'local_aiconnect_clients',
+        'local_aiconnect_blocked',
+        'local_aiconnect_pending',
+        'local_aiconnect_autonomy',
+        'local_aiconnect_conflog',
     ];
 
     foreach ($tables as $tablename) {

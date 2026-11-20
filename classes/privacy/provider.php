@@ -94,6 +94,33 @@ class provider implements
             'timecreated' => 'privacy:metadata:local_aiconnect_blocked:timecreated',
         ], 'privacy:metadata:local_aiconnect_blocked');
 
+        $collection->add_database_table('local_aiconnect_pending', [
+            'userid'      => 'privacy:metadata:local_aiconnect_pending:userid',
+            'tool'        => 'privacy:metadata:local_aiconnect_pending:tool',
+            'argsjson'    => 'privacy:metadata:local_aiconnect_pending:argsjson',
+            'summary'     => 'privacy:metadata:local_aiconnect_pending:summary',
+            'clientid'    => 'privacy:metadata:local_aiconnect_clients:client_id',
+            'status'      => 'privacy:metadata:local_aiconnect_pending:status',
+            'resultjson'  => 'privacy:metadata:local_aiconnect_pending:resultjson',
+            'timecreated' => 'privacy:metadata:local_aiconnect_pending:timecreated',
+            'timedecided' => 'privacy:metadata:local_aiconnect_pending:timedecided',
+        ], 'privacy:metadata:local_aiconnect_pending');
+
+        $collection->add_database_table('local_aiconnect_autonomy', [
+            'userid'      => 'privacy:metadata:local_aiconnect_autonomy:userid',
+            'tool'        => 'privacy:metadata:local_aiconnect_pending:tool',
+            'clientid'    => 'privacy:metadata:local_aiconnect_clients:client_id',
+            'timecreated' => 'privacy:metadata:local_aiconnect_pending:timecreated',
+        ], 'privacy:metadata:local_aiconnect_autonomy');
+
+        $collection->add_database_table('local_aiconnect_conflog', [
+            'userid'      => 'privacy:metadata:local_aiconnect_conflog:userid',
+            'actorid'     => 'privacy:metadata:local_aiconnect_conflog:actorid',
+            'event'       => 'privacy:metadata:local_aiconnect_conflog:event',
+            'ip'          => 'privacy:metadata:local_aiconnect_conflog:ip',
+            'timecreated' => 'privacy:metadata:local_aiconnect_pending:timecreated',
+        ], 'privacy:metadata:local_aiconnect_conflog');
+
         return $collection;
     }
 
@@ -113,6 +140,10 @@ class provider implements
             || $DB->record_exists('local_aiconnect_token_registry', ['revoked_by' => $userid])
             || $DB->record_exists('local_aiconnect_blocked', ['userid' => $userid])
             || $DB->record_exists('local_aiconnect_blocked', ['blockedby' => $userid])
+            || $DB->record_exists('local_aiconnect_pending', ['userid' => $userid])
+            || $DB->record_exists('local_aiconnect_autonomy', ['userid' => $userid])
+            || $DB->record_exists('local_aiconnect_conflog', ['userid' => $userid])
+            || $DB->record_exists('local_aiconnect_conflog', ['actorid' => $userid])
         ) {
             $list->add_system_context();
         }
@@ -137,6 +168,14 @@ class provider implements
             []
         );
         $userlist->add_from_sql('userid', 'SELECT DISTINCT userid FROM {local_aiconnect_blocked}', []);
+        $userlist->add_from_sql('userid', 'SELECT DISTINCT userid FROM {local_aiconnect_pending}', []);
+        $userlist->add_from_sql('userid', 'SELECT DISTINCT userid FROM {local_aiconnect_autonomy}', []);
+        $userlist->add_from_sql('userid', 'SELECT DISTINCT userid FROM {local_aiconnect_conflog}', []);
+        $userlist->add_from_sql(
+            'actorid',
+            'SELECT DISTINCT actorid FROM {local_aiconnect_conflog} WHERE actorid IS NOT NULL AND actorid > 0',
+            []
+        );
         $userlist->add_from_sql(
             'blockedby',
             'SELECT DISTINCT blockedby FROM {local_aiconnect_blocked} WHERE blockedby IS NOT NULL',
@@ -229,6 +268,49 @@ class provider implements
             }
             $writer->export_data(['local_aiconnect', 'blocks_by_you'], (object) ['blocks' => $out]);
         }
+
+        $actions = $DB->get_records('local_aiconnect_pending', ['userid' => $userid], 'timecreated ASC');
+        if ($actions) {
+            $out = [];
+            foreach ($actions as $a) {
+                $out[] = (object) [
+                    'tool'        => $a->tool,
+                    'summary'     => $a->summary,
+                    'arguments'   => $a->argsjson,
+                    'client_id'   => $a->clientid,
+                    'status'      => $a->status,
+                    'result'      => $a->resultjson,
+                    'timecreated' => transform::datetime($a->timecreated),
+                    'timedecided' => $a->timedecided ? transform::datetime($a->timedecided) : null,
+                ];
+            }
+            $writer->export_data(['local_aiconnect', 'ai_actions'], (object) ['actions' => $out]);
+        }
+
+        $grants = $DB->get_records('local_aiconnect_autonomy', ['userid' => $userid], 'timecreated ASC');
+        if ($grants) {
+            $out = [];
+            foreach ($grants as $g) {
+                $out[] = (object) ['tool' => $g->tool, 'client_id' => $g->clientid,
+                    'timecreated' => transform::datetime($g->timecreated)];
+            }
+            $writer->export_data(['local_aiconnect', 'ai_autonomy'], (object) ['grants' => $out]);
+        }
+
+        $log = $DB->get_records_select(
+            'local_aiconnect_conflog',
+            'userid = ? OR actorid = ?',
+            [$userid, $userid],
+            'timecreated ASC, id ASC'
+        );
+        if ($log) {
+            $out = [];
+            foreach ($log as $l) {
+                $out[] = (object) ['event' => $l->event, 'tool' => $l->tool, 'client_id' => $l->clientid, 'ip' => $l->ip,
+                    'timecreated' => transform::datetime($l->timecreated)];
+            }
+            $writer->export_data(['local_aiconnect', 'ai_actions_log'], (object) ['events' => $out]);
+        }
     }
 
     /**
@@ -246,6 +328,9 @@ class provider implements
         $DB->delete_records('local_aiconnect_ratelimits', []);
         $DB->delete_records('local_aiconnect_token_registry', []);
         $DB->delete_records('local_aiconnect_blocked', []);
+        $DB->delete_records('local_aiconnect_pending', []);
+        $DB->delete_records('local_aiconnect_autonomy', []);
+        $DB->delete_records('local_aiconnect_conflog', []);
     }
 
     /**
@@ -295,6 +380,10 @@ class provider implements
         $DB->delete_records_select('local_aiconnect_codes', "userid $insql", $params);
         $DB->delete_records_select('local_aiconnect_token_registry', "user_id $insql", $params);
         $DB->delete_records_select('local_aiconnect_blocked', "userid $insql", $params);
+        $DB->delete_records_select('local_aiconnect_pending', "userid $insql", $params);
+        $DB->delete_records_select('local_aiconnect_autonomy', "userid $insql", $params);
+        $DB->delete_records_select('local_aiconnect_conflog', "userid $insql", $params);
+        $DB->set_field_select('local_aiconnect_conflog', 'actorid', null, "actorid $insql", $params);
 
         $DB->set_field_select('local_aiconnect_token_registry', 'revoked_by', null, "revoked_by $insql", $params);
         $DB->set_field_select('local_aiconnect_blocked', 'blockedby', null, "blockedby $insql", $params);

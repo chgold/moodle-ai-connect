@@ -115,20 +115,29 @@ class manifest_controller {
             $auth['registered_clients'] = $clients;
         }
 
-        return [
+        $tools = $this->registry->get_all_tools('read write');
+        $confirmation = \local_aiconnect\local\confirmation::manifest_block($tools);
+
+        $manifest = [
             'schema_version' => '1.0',
             'name'           => 'moodle-plugin',
             'version'        => $this->plugin_release(),
             'description'    => 'AI Connect for Moodle — access courses, grades, assignments and manage learning via AI agents',
             'api_version'    => 'v1',
-            'capabilities'   => ['tools' => true, 'resources' => false, 'prompts' => false],
+            'capabilities'   => ['tools' => true, 'resources' => false, 'prompts' => false,
+                'confirmation' => $confirmation !== null],
             'server'         => [
                 'url'         => "$base/v1/tools",
                 'description' => 'Base URL — POST to {url}/{tool_name} with Bearer token',
             ],
             'auth'  => $auth,
-            'tools' => $this->registry->get_all_tools('read write'),
+            'tools' => $tools,
         ];
+        if ($confirmation !== null) {
+            $manifest['confirmation'] = $confirmation;
+            $manifest['instructions'] = \local_aiconnect\local\confirmation::INSTRUCTIONS;
+        }
+        return $manifest;
     }
 
     /**

@@ -99,6 +99,8 @@ Defined in `db/access.php`:
 | `POST` | `/local/aiconnect/oauth.php?action=generate_token` | Helper for logged-in admins |
 | `POST` | `/local/aiconnect/v1/tools/{tool}` | Execute a tool |
 | `POST` | `/local/aiconnect/tools.php` | Same, with `?tool=` query parameter |
+| `GET`  | `/local/aiconnect/confirmations.php?id={confirmation_id}` | Status (and, once, the result) of an action waiting for the user — Bearer token of the same user |
+| `GET`/`POST` | `/local/aiconnect/aiactions.php` | **AI actions** page: the signed-in user confirms or rejects what an agent asked (session + `sesskey`; a request with an `Authorization` header is refused) |
 
 ---
 
@@ -204,6 +206,7 @@ rate-limit rows.
 | Permission ceiling (SEC-00) | Security: H5P / BigBlueButton tools return only what the user sees natively — hidden/restricted activities filtered (`cm_info::uservisible`), attempts own-only without `mod/h5pactivity:reviewattempts`, BBB attendance needs course report capability, join honours `:join`, groups and opening/closing time (2.2.2) |
 | Privacy | `\local_aiconnect\privacy\provider` declares, exports and deletes every table with personal data: codes, tokens, rate-limit counters, the token registry (incl. IP address and user agent) and the block list (2.2.5) |
 | External services | None, unless a paid add-on licence key is entered: then the key and the site URL are checked against `goldnat.ai`. No user data leaves the site |
+| User confirmation (2.2.7) | Destructive tools of the add-ons (`confirmation` in the manifest) answer HTTP 202 `confirmation_required` and run only after the token's owner confirms on **AI actions** — bound to user + tool + SHA-256 of the arguments + client, 15-minute expiry, single use, executed once as that user; re-sending with `confirmation_id` only reports. Flow `user-confirm-v1` (Servio §6.5) |
 | Cleanup | Daily scheduled task purges expired tokens & codes |
 | Uninstall | `db/uninstall.php` drops every plugin table cleanly |
 

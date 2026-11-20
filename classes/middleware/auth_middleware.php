@@ -43,7 +43,7 @@ class auth_middleware {
     /**
      * Require a valid `Authorization: Bearer <token>` header.
      *
-     * @return array{userid:int,scope:string,token:string} Caller identity.
+     * @return array{userid:int,scope:string,token:string,clientid:string} Caller identity.
      */
     public static function require_bearer(): array {
         global $DB;
@@ -89,6 +89,7 @@ class auth_middleware {
             'userid' => (int) $rec->userid,
             'scope'  => (string) $rec->scope,
             'token'  => $token,
+            'clientid' => (string) ($rec->client_id ?? ''),
         ];
     }
 

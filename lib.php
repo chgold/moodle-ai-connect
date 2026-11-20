@@ -69,6 +69,16 @@ function local_aiconnect_extend_navigation_user(
         'local_aiconnect_mytokens',
         new \pix_icon('i/key', '')
     );
+    if ($issameuser) {
+        $parentnode->add(
+            get_string('aiactions_heading', 'local_aiconnect'),
+            new \moodle_url('/local/aiconnect/aiactions.php'),
+            \navigation_node::TYPE_SETTING,
+            null,
+            'local_aiconnect_aiactions',
+            new \pix_icon('i/checked', '')
+        );
+    }
 }
 
 /**
@@ -120,8 +130,25 @@ function local_aiconnect_render_navbar_output(\renderer_base $renderer): string 
     $icon = '<i class="fa fa-key" aria-hidden="true"></i>';
     $label = htmlspecialchars(get_string('pluginname', 'local_aiconnect'), ENT_QUOTES, 'UTF-8');
 
-    return '<div class="local-aiconnect-navbar nav-item">'
+    $html = '<div class="local-aiconnect-navbar nav-item">'
          . '<a class="nav-link" href="' . $url->out() . '" title="' . $label . '">'
          . $icon . ' <span class="d-none d-md-inline">' . $label . '</span>'
          . '</a></div>';
+
+    // Actions an AI agent asked for that wait for this user's confirmation.
+    try {
+        $waiting = \local_aiconnect\local\confirmation::count_pending((int) $USER->id);
+    } catch (\Throwable $e) {
+        $waiting = 0;
+    }
+    if ($waiting > 0) {
+        $aurl = new \moodle_url('/local/aiconnect/aiactions.php');
+        $alabel = s(get_string('aiactions_waiting_count', 'local_aiconnect', $waiting));
+        $html .= '<div class="local-aiconnect-aiactions nav-item">'
+            . '<a class="nav-link text-danger" href="' . $aurl->out() . '" title="' . $alabel . '">'
+            . '<i class="fa fa-exclamation-circle" aria-hidden="true"></i> '
+            . '<span class="badge badge-danger bg-danger">' . (int) $waiting . '</span>'
+            . '<span class="sr-only visually-hidden">' . $alabel . '</span></a></div>';
+    }
+    return $html;
 }

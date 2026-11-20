@@ -81,6 +81,21 @@ if ($hassiteconfig) {
     ));
 
     $settings->add(new admin_setting_configtext(
+        'local_aiconnect/confirmation_ttl',
+        get_string('confirmation_ttl', 'local_aiconnect'),
+        get_string('confirmation_ttl_desc', 'local_aiconnect'),
+        '900',
+        PARAM_INT
+    ));
+
+    $settings->add(new admin_setting_configcheckbox(
+        'local_aiconnect/confirmation_autonomy',
+        get_string('confirmation_autonomy', 'local_aiconnect'),
+        get_string('confirmation_autonomy_desc', 'local_aiconnect'),
+        1
+    ));
+
+    $settings->add(new admin_setting_configtext(
         'local_aiconnect/ratelimit_hour',
         get_string('ratelimit_hour', 'local_aiconnect'),
         get_string('ratelimit_hour_desc', 'local_aiconnect'),

@@ -51,12 +51,15 @@ class tools_controller {
      * @param array  $params Decoded JSON request body.
      * @param int    $userid Authenticated Moodle user id.
      * @param string $scope  Scopes granted to the bearer token.
+     * @param array  $extra  clientid + tokenprefix of the bearer token (confirmation binding).
      * @return array Tool response. On error, contains an `error` key.
      */
-    public function execute(string $tool, array $params, int $userid, string $scope): array {
+    public function execute(string $tool, array $params, int $userid, string $scope, array $extra = []): array {
         return $this->registry->execute($tool, $params, [
-            'userid' => $userid,
-            'scope'  => $scope,
+            'userid'      => $userid,
+            'scope'       => $scope,
+            'clientid'    => (string) ($extra['clientid'] ?? ''),
+            'tokenprefix' => (string) ($extra['tokenprefix'] ?? ''),
         ]);
     }
 

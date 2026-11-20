@@ -4,6 +4,53 @@ All notable changes to `local_aiconnect` are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 semantic versioning.
 
+## [2.2.7] — 2026-11-20
+
+### Security
+- **User confirmation for destructive tools (`user-confirm-v1`).** A tool that
+  declares `confirmation` (Admin, Teacher, Student, BigBlueButton and H5P
+  add-ons: deleting users or content, suspending, password resets, role
+  changes, site settings, …) no longer runs when an agent calls it. The call
+  answers **HTTP 202** `confirmation_required` with a one-sentence `summary`
+  and `user_message` in the user's language, `details`, a `confirm_url` on
+  this site and a `status_url`. Nothing happens until the Moodle user who owns
+  the token opens **AI actions** (`/local/aiconnect/aiactions.php`) and
+  confirms. The page needs a logged-in session and `sesskey`; a request that
+  carries an `Authorization` header (the agent's token) is refused, so an agent
+  can never approve its own request.
+- The approval is bound to user + tool + SHA-256 of the arguments + client,
+  expires (15 minutes by default, setting `confirmation_ttl`), is single use
+  (atomic claim) and runs the tool **once**, as that user, with every scope and
+  Moodle permission check repeated. Re-sending with `confirmation_id` only
+  reports (stored result, `already_executed`); other arguments → 409
+  `confirmation_mismatch`; rejected / expired → 410; another user → 404. The
+  same call repeated right after it ran returns the stored result instead of
+  asking again (`confirmation_new: true` asks again). A blocked user, a revoked
+  token or a suspended account cannot execute a confirmed action.
+- Optional autonomy: on the confirm page the user may let one agent run one
+  tool without asking; listed there with *Remove*; site switch
+  `confirmation_autonomy`.
+- The agent-side `confirm` flag is removed from the schema of gated tools and
+  ignored. Manifest: per tool `confirmation` (`required` / `conditional`) and
+  `risk`, top-level `capabilities.confirmation`, a `confirmation` block and
+  `instructions`.
+
+### Added
+- Tables `local_aiconnect_pending`, `local_aiconnect_autonomy`,
+  `local_aiconnect_conflog` (append-only audit log), declared in the Privacy
+  API (export + delete). Moodle events `ai_action_requested`,
+  `ai_action_confirmed`, `ai_action_rejected`. `confirmations.php` (status for
+  the token owner). A navbar badge and a profile link show waiting actions.
+  Hebrew strings (`lang/he`). The daily cleanup task expires waiting actions
+  and drops decided ones after 30 days.
+
+### Tests
+- `tests/confirmation_test.php` (15 tests): queue without side effect,
+  preview errors queue nothing, reuse, single use + replay refused, other user
+  refused, duplicate window, reject, expiry, read scope / guest, conditional
+  tools, blocked user, autonomy grant + site switch + revoke, Hebrew text,
+  manifest, status endpoint, privacy delete + cleanup. Whole suite: 54 pass.
+
 ## [2.2.6] — 2026-11-20
 
 ### Fixed

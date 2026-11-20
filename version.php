@@ -26,7 +26,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_aiconnect';
-$plugin->version      = 2026112000;
+$plugin->version      = 2026112100;
 $plugin->requires  = 2023100900;
 $plugin->maturity  = MATURITY_STABLE;
-$plugin->release   = '2.2.6';
+$plugin->release   = '2.2.7';

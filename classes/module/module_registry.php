@@ -84,11 +84,17 @@ class module_registry {
         $out = [];
         foreach ($this->modules as $module) {
             foreach ($module->get_tools($scope) as $tool) {
-                $out[] = [
+                $entry = [
                     'name'         => $tool['name'],
                     'description'  => $tool['description'],
                     'input_schema' => $tool['input_schema'],
                 ];
+                if (!empty($tool['confirmation'])) {
+                    $entry['description'] .= \local_aiconnect\local\confirmation::description_suffix($tool['confirmation']);
+                    $entry['confirmation'] = \local_aiconnect\local\confirmation::mode($tool['confirmation']);
+                    $entry['risk'] = $tool['confirmation']['risk'];
+                }
+                $out[] = $entry;
             }
         }
         return $out;

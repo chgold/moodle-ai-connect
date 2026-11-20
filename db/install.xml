@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="local/aiconnect/db" VERSION="20260511" COMMENT="XMLDB schema for local_aiconnect (AI Connect WebMCP server)"
+<XMLDB PATH="local/aiconnect/db" VERSION="20261121" COMMENT="XMLDB schema for local_aiconnect (AI Connect WebMCP server)"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
 >
@@ -120,6 +120,81 @@
       </KEYS>
       <INDEXES>
         <INDEX NAME="userid_idx" UNIQUE="true" FIELDS="userid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_aiconnect_pending" COMMENT="Actions an AI agent asked for that wait for the user's confirmation (user-confirm-v1)">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="confid" TYPE="char" LENGTH="40" NOTNULL="true" SEQUENCE="false" COMMENT="Public confirmation id conf_ + 32 hex"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Token owner who must confirm"/>
+        <FIELD NAME="tool" TYPE="char" LENGTH="100" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="argsjson" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Canonical arguments that will run"/>
+        <FIELD NAME="argshash" TYPE="char" LENGTH="64" NOTNULL="true" SEQUENCE="false" COMMENT="SHA-256 of the canonical arguments"/>
+        <FIELD NAME="clientkey" TYPE="char" LENGTH="120" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="clientid" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="scope" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="tokenprefix" TYPE="char" LENGTH="16" NOTNULL="false" SEQUENCE="false" COMMENT="Prefix of the token that asked (revocation check)"/>
+        <FIELD NAME="risk" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="destructive" SEQUENCE="false"/>
+        <FIELD NAME="summary" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false" COMMENT="One sentence for the user, in their language"/>
+        <FIELD NAME="details" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="JSON list of plain lines: what will happen"/>
+        <FIELD NAME="previewjson" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="lang" TYPE="char" LENGTH="30" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="status" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="pending" SEQUENCE="false" COMMENT="pending, executing, executed, failed, rejected, expired"/>
+        <FIELD NAME="claim" TYPE="char" LENGTH="40" NOTNULL="false" SEQUENCE="false" COMMENT="Single-use claim of the deciding request"/>
+        <FIELD NAME="resultjson" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="expiresat" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="timedecided" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="decidedby" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="timeexecuted" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="timedelivered" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="When the agent collected the result"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="confid_idx" UNIQUE="true" FIELDS="confid"/>
+        <INDEX NAME="user_status_idx" UNIQUE="false" FIELDS="userid, status"/>
+        <INDEX NAME="lookup_idx" UNIQUE="false" FIELDS="userid, tool, argshash"/>
+        <INDEX NAME="status_expires_idx" UNIQUE="false" FIELDS="status, expiresat"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_aiconnect_autonomy" COMMENT="A user let one AI client run one confirmation tool without asking">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="tool" TYPE="char" LENGTH="100" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="clientid" TYPE="char" LENGTH="100" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="via" TYPE="char" LENGTH="30" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="user_tool_client_idx" UNIQUE="true" FIELDS="userid, tool, clientid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_aiconnect_conflog" COMMENT="Append-only audit log of the confirmation flow">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="confid" TYPE="char" LENGTH="40" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="event" TYPE="char" LENGTH="30" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Owner of the action"/>
+        <FIELD NAME="actorid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Who caused the event"/>
+        <FIELD NAME="tool" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="clientid" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="ip" TYPE="char" LENGTH="45" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="detail" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="userid_idx" UNIQUE="false" FIELDS="userid"/>
+        <INDEX NAME="confid_idx" UNIQUE="false" FIELDS="confid"/>
+        <INDEX NAME="timecreated_idx" UNIQUE="false" FIELDS="timecreated"/>
       </INDEXES>
     </TABLE>
   </TABLES>

@@ -188,5 +188,23 @@ function xmldb_local_aiconnect_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026060700, 'local', 'aiconnect');
     }
 
+    if ($oldversion < 2026112100) {
+        // User confirmation flow (user-confirm-v1): pending actions, autonomy grants, audit log.
+        $table = new xmldb_table('local_aiconnect_pending');
+        if (!$dbman->table_exists($table)) {
+            $dbman->install_one_table_from_xmldb_file(__DIR__ . '/install.xml', 'local_aiconnect_pending');
+        }
+        $table = new xmldb_table('local_aiconnect_autonomy');
+        if (!$dbman->table_exists($table)) {
+            $dbman->install_one_table_from_xmldb_file(__DIR__ . '/install.xml', 'local_aiconnect_autonomy');
+        }
+        $table = new xmldb_table('local_aiconnect_conflog');
+        if (!$dbman->table_exists($table)) {
+            $dbman->install_one_table_from_xmldb_file(__DIR__ . '/install.xml', 'local_aiconnect_conflog');
+        }
+
+        upgrade_plugin_savepoint(true, 2026112100, 'local', 'aiconnect');
+    }
+
     return true;
 }
