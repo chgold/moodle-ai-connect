@@ -26,6 +26,7 @@ namespace local_aiconnect\controller;
 
 use local_aiconnect\lib\http;
 use local_aiconnect\lib\redirect_uri;
+use local_aiconnect\local\connect_access;
 use local_aiconnect\service\token_registry;
 use moodle_url;
 
@@ -133,8 +134,8 @@ class oauth_controller {
             http::oauth_error(400, 'invalid_request', 'redirect_uri is not registered for this client');
         }
 
-        $context = \context_system::instance();
-        if (!has_capability('local/aiconnect:use', $context)) {
+        // 2.2.9: teachers and students hold the capability in their courses, not at site level.
+        if (!connect_access::can_connect((int) $USER->id)) {
             http::oauth_error(403, 'access_denied', 'User lacks local/aiconnect:use capability');
         }
 
@@ -301,6 +302,10 @@ HTML;
             ]);
             if (!$rec || time() > (int) $rec->expiry) {
                 http::oauth_error(400, 'invalid_grant', 'Refresh token is invalid or expired');
+            }
+            // 2.2.9: a user who may no longer connect (role removed, suspended) gets no new tokens.
+            if (!connect_access::can_connect((int) $rec->userid)) {
+                http::oauth_error(400, 'invalid_grant', 'The user may no longer connect an agent');
             }
 
             $transaction = $DB->start_delegated_transaction();
@@ -474,8 +479,9 @@ HTML;
         require_login(null, false);
         require_sesskey();
 
-        $context = \context_system::instance();
-        require_capability('local/aiconnect:use', $context);
+        if (!connect_access::can_connect((int) $USER->id)) {
+            http::oauth_error(403, 'access_denied', 'User lacks local/aiconnect:use capability');
+        }
 
         [$accesstoken, $refreshtoken] = $this->issue_tokens('claude', (int) $USER->id, 'read write', 'generate');
 

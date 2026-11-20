@@ -206,5 +206,25 @@ function xmldb_local_aiconnect_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026112100, 'local', 'aiconnect');
     }
 
+    if ($oldversion < 2026112300) {
+        // 2.2.9: students may connect an agent (local/aiconnect:use). New
+        // installs get it from the archetype in db/access.php; existing sites
+        // get it here — only for student-archetype roles that have no
+        // definition for the capability yet, so an admin's choice is kept.
+        $syscontext = context_system::instance();
+        foreach (get_archetype_roles('student') as $role) {
+            $exists = $DB->record_exists('role_capabilities', [
+                'roleid' => $role->id,
+                'contextid' => $syscontext->id,
+                'capability' => 'local/aiconnect:use',
+            ]);
+            if (!$exists) {
+                assign_capability('local/aiconnect:use', CAP_ALLOW, $role->id, $syscontext->id);
+            }
+        }
+
+        upgrade_plugin_savepoint(true, 2026112300, 'local', 'aiconnect');
+    }
+
     return true;
 }

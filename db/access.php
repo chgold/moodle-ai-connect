@@ -10,7 +10,9 @@ $capabilities = [
     'local/aiconnect:use' => [
         'captype'      => 'read',
         'contextlevel' => CONTEXT_SYSTEM,
-        'archetypes'   => ['teacher' => CAP_ALLOW, 'editingteacher' => CAP_ALLOW, 'manager' => CAP_ALLOW],
+        'archetypes'   => [
+            'student' => CAP_ALLOW, 'teacher' => CAP_ALLOW, 'editingteacher' => CAP_ALLOW, 'manager' => CAP_ALLOW,
+        ],
     ],
     'local/aiconnect:usepro' => [
         'captype'      => 'write',

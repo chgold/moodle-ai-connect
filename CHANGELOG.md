@@ -4,6 +4,27 @@ All notable changes to `local_aiconnect` are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 semantic versioning.
 
+## [2.2.9] — 2026-11-20
+
+### Fixed
+- **Students and teachers could not connect an agent at all.** The authorize
+  endpoint (and the info page's "Generate token") checked
+  `local/aiconnect:use` in the system context only. Teacher, editing teacher
+  and student roles are assigned inside a course, so every teacher and
+  student got `access_denied`. Now a user may connect when they hold the
+  capability at site level **or in at least one of their courses** (or a
+  category above it). What an agent may then do is still decided per tool by
+  the user's own Moodle capabilities in the target course (SEC-00) —
+  connecting grants nothing by itself.
+- **Students get `local/aiconnect:use`.** New sites get it from the role
+  archetype; on existing sites the upgrade adds it to student roles that have
+  no setting for it yet (an administrator's explicit choice is kept). To keep
+  students out, prohibit the capability for the student role.
+
+### Security
+- A refresh token no longer gives new tokens to a user who may no longer
+  connect (role removed, account suspended or deleted).
+
 ## [2.2.8] — 2026-11-20
 
 ### Security

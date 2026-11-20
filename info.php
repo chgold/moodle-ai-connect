@@ -31,7 +31,7 @@ $PAGE->set_title(get_string('pluginname', 'local_aiconnect'));
 $PAGE->set_heading(get_string('pluginname', 'local_aiconnect'));
 
 $isloggedin = isloggedin() && !isguestuser();
-$hasuse     = $isloggedin && has_capability('local/aiconnect:use', $context);
+$hasuse     = $isloggedin && \local_aiconnect\local\connect_access::can_connect((int) $USER->id);
 
 $wwwroot     = $CFG->wwwroot;
 $manifesturl = $wwwroot . '/local/aiconnect/manifest.php';
