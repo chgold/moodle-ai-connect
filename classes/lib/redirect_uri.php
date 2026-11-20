@@ -42,7 +42,7 @@ defined('MOODLE_INTERNAL') || die();
  */
 class redirect_uri {
     /** Out-of-band constant (code shown on our own page, no redirect). */
-    const OOB = 'urn:ietf:wg:oauth:2.0:oob';
+    public const OOB = 'urn:ietf:wg:oauth:2.0:oob';
 
     /**
      * Parse the stored `redirect_uris` column: JSON array, or a list separated
