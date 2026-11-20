@@ -85,8 +85,8 @@ class redirect_uri {
             if ($merged === $current) {
                 continue;
             }
-            $DB->set_field('local_aiconnect_clients', 'redirect_uris',
-                json_encode(array_values($merged), JSON_UNESCAPED_SLASHES), ['id' => $row->id]);
+            $json = json_encode(array_values($merged), JSON_UNESCAPED_SLASHES);
+            $DB->set_field('local_aiconnect_clients', 'redirect_uris', $json, ['id' => $row->id]);
             $changed++;
         }
         return $changed;
