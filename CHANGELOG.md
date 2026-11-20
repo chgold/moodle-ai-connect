@@ -4,6 +4,23 @@ All notable changes to `local_aiconnect` are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 semantic versioning.
 
+## [2.2.8] — 2026-11-20
+
+### Security
+- **OAuth `redirect_uri` must be registered (OAuth 2.1 / RFC 9700).** The
+  authorize endpoint accepted any https address as `redirect_uri`, so a
+  crafted consent link could send the authorization code to a third party.
+  Now the address must be one of the client's registered URIs (exact string
+  match; a registered loopback `http://127.0.0.1/…` / `http://localhost/…`
+  accepts any port, RFC 8252 §7.3). A refused request gets an error from the
+  site itself — never a redirect.
+- **Token exchange is bound to the authorization request.** `redirect_uri`
+  must equal the one used at authorize (an out-of-band code may omit it) and
+  a `client_id` that is sent must be the code's client.
+- The default clients are registered with `urn:ietf:wg:oauth:2.0:oob`, the
+  address every current connection (goldnat and the AI clients) uses, so
+  existing connections keep working.
+
 ## [2.2.7] — 2026-11-20
 
 ### Security

@@ -25,6 +25,7 @@
 namespace local_aiconnect\controller;
 
 use local_aiconnect\lib\http;
+use local_aiconnect\lib\redirect_uri;
 use local_aiconnect\service\token_registry;
 use moodle_url;
 
@@ -124,6 +125,12 @@ class oauth_controller {
 
         if (!http::is_redirect_uri_allowed($redirecturi)) {
             http::oauth_error(400, 'invalid_request', 'redirect_uri must use https');
+        }
+        // 2.2.8 (OAuth 2.1 / RFC 9700): the redirect_uri must be one the client
+        // registered (exact match). Refused requests get our own error response —
+        // never a redirect to the unregistered address.
+        if (!redirect_uri::is_registered($redirecturi, redirect_uri::registered_list($matched->redirect_uris ?? ''))) {
+            http::oauth_error(400, 'invalid_request', 'redirect_uri is not registered for this client');
         }
 
         $context = \context_system::instance();
@@ -248,6 +255,19 @@ HTML;
             $rec = $DB->get_record('local_aiconnect_codes', ['code' => $code]);
             if (!$rec || (int) $rec->used === 1 || time() > (int) $rec->expiry) {
                 http::oauth_error(400, 'invalid_grant', 'Authorization code is invalid, used or expired');
+            }
+            // 2.2.8: the code is bound to its client and redirect_uri.
+            $sentclient = optional_param('client_id', '', PARAM_ALPHANUMEXT);
+            if ($sentclient !== '') {
+                $sentmatch = $this->find_client($sentclient);
+                if (!$sentmatch || $sentmatch->client_id !== $rec->client_id) {
+                    http::oauth_error(400, 'invalid_grant', 'client_id does not match the authorization code');
+                }
+            }
+            $sentredirect = array_key_exists('redirect_uri', $_POST) || array_key_exists('redirect_uri', $_GET)
+                ? optional_param('redirect_uri', '', PARAM_RAW_TRIMMED) : null;
+            if (!redirect_uri::token_matches((string) $rec->redirect_uri, $sentredirect)) {
+                http::oauth_error(400, 'invalid_grant', 'redirect_uri does not match the authorization request');
             }
             if (!$this->verify_pkce($verifier, $rec->code_challenge)) {
                 http::oauth_error(400, 'invalid_grant', 'PKCE verification failed');
