@@ -226,5 +226,11 @@ function xmldb_local_aiconnect_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026112300, 'local', 'aiconnect');
     }
 
+    if ($oldversion < 2026112400) {
+        // 2.2.10: official callback URLs of Claude and goldnat on the default clients.
+        \local_aiconnect\lib\redirect_uri::apply_official();
+        upgrade_plugin_savepoint(true, 2026112400, 'local', 'aiconnect');
+    }
+
     return true;
 }

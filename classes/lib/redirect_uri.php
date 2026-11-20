@@ -45,6 +45,54 @@ class redirect_uri {
     public const OOB = 'urn:ietf:wg:oauth:2.0:oob';
 
     /**
+     * Official OAuth callback URLs of the default clients whose vendor publishes one (2.2.10).
+     *
+     * Until 2.2.9 every default client held only the out-of-band URI, so a product that
+     * redirects back to its own site was refused by the exact match. Only URLs from the
+     * vendor's own documentation are listed:
+     *  - claude (claude.ai, Claude Desktop, mobile): https://claude.ai/api/mcp/auth_callback
+     *    (Anthropic connector docs, "Callback URLs"); 'claude-ai' etc. resolve to 'claude'.
+     *  - webmcp-master (goldnat.ai): https://goldnat.ai/oauth/callback (the redirect_uri
+     *    goldnat's OAuth client sends).
+     */
+    public const OFFICIAL = [
+        'claude'        => ['https://claude.ai/api/mcp/auth_callback'],
+        'webmcp-master' => ['https://goldnat.ai/oauth/callback'],
+        'goldnat'       => ['https://goldnat.ai/oauth/callback'],
+    ];
+
+    /**
+     * Add OFFICIAL to the matching client rows: union, stored as a JSON array (OOB and
+     * URLs an administrator added stay; other clients are not touched). Idempotent.
+     *
+     * @return int Number of rows changed.
+     */
+    public static function apply_official(): int {
+        global $DB;
+        $changed = 0;
+        foreach (self::OFFICIAL as $clientid => $uris) {
+            $row = $DB->get_record('local_aiconnect_clients', ['client_id' => $clientid], 'id, redirect_uris');
+            if (!$row) {
+                continue;
+            }
+            $current = self::registered_list($row->redirect_uris ?? '');
+            $merged = $current;
+            foreach ($uris as $uri) {
+                if (!in_array($uri, $merged, true)) {
+                    $merged[] = $uri;
+                }
+            }
+            if ($merged === $current) {
+                continue;
+            }
+            $DB->set_field('local_aiconnect_clients', 'redirect_uris',
+                json_encode(array_values($merged), JSON_UNESCAPED_SLASHES), ['id' => $row->id]);
+            $changed++;
+        }
+        return $changed;
+    }
+
+    /**
      * Parse the stored `redirect_uris` column: JSON array, or a list separated
      * by whitespace / commas (legacy single plain value included).
      *

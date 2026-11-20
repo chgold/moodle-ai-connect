@@ -4,6 +4,18 @@ All notable changes to `local_aiconnect` are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 semantic versioning.
 
+## [2.2.10] — 2026-11-20
+
+### Changed
+- **Official callback URLs for Claude and goldnat.** The default client
+  `claude` (and the IDs that resolve to it, such as `claude-ai`) now also
+  accepts Claude's official callback `https://claude.ai/api/mcp/auth_callback`
+  (claude.ai, Claude Desktop, mobile), and `webmcp-master` / `goldnat` accept
+  `https://goldnat.ai/oauth/callback`. Until now the default clients accepted
+  only the out-of-band address. Nothing is removed, other clients are
+  unchanged, and the address must still match exactly. Added on install and
+  by the 2026112400 upgrade step.
+
 ## [2.2.9] — 2026-11-20
 
 ### Fixed

@@ -66,5 +66,8 @@ function xmldb_local_aiconnect_install(): bool {
         ]);
     }
 
+    // 2.2.10: official callback URLs (Claude, goldnat) on top of OOB.
+    \local_aiconnect\lib\redirect_uri::apply_official();
+
     return true;
 }
