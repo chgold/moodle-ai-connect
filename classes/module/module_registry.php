@@ -66,7 +66,10 @@ class module_registry {
      */
     public function register(module_base $module): void {
         $this->modules[] = $module;
-        foreach ($module->get_tools('read write') as $shortname => $tool) {
+        // Index ALL tools, capability not checked: a capability-missing tool must
+        // reach execute_tool() and answer 424 (Capability-Aware Manifest #803).
+        // The manifest still uses get_tools(), which hides it.
+        foreach ($module->get_registered_tools() as $shortname => $tool) {
             $this->tool_index[$tool['name']] = $module;
         }
     }

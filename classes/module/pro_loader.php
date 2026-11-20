@@ -42,7 +42,10 @@ class pro_loader {
      * Each entry:
      *   class     — fully-qualified pro_module class name
      *   component — Moodle component (holds the license_key config option)
-     *   slug      — Servio plugin slug the license server must match
+     *   slug      — Servio plugin slug the license server must match. This is the
+     *               slug of the PAID product that is sold (its license carries it),
+     *               e.g. moodle-hvp-ai-connect-pro — never the free core slug, whose
+     *               tools need no license (BUNDLES-LICENSE-SPEC, slug matching).
      *
      * Adding a new sibling Pro plugin means adding one entry here. Each Pro
      * loads only if BOTH the class exists (plugin installed) AND either the
@@ -69,12 +72,12 @@ class pro_loader {
         [
             'class'     => '\\local_aiconnectbbb\\module\\pro_module',
             'component' => 'local_aiconnectbbb',
-            'slug'      => 'moodle-bigbluebutton-ai-connect',
+            'slug'      => 'moodle-bigbluebutton-ai-connect-pro',
         ],
         [
             'class'     => '\\local_aiconnecthvp\\module\\pro_module',
             'component' => 'local_aiconnecthvp',
-            'slug'      => 'moodle-hvp-ai-connect',
+            'slug'      => 'moodle-hvp-ai-connect-pro',
         ],
     ];
 

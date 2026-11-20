@@ -4,6 +4,27 @@ All notable changes to `local_aiconnect` are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 semantic versioning.
 
+## [2.2.6] — 2026-11-20
+
+### Fixed
+- **A direct call to a tool whose Moodle plugin is missing now answers
+  `424 Failed Dependency`** (Capability-Aware Manifest). Before, such a tool
+  was left out of the dispatch index as well as the manifest, so the call
+  ended as `404 Unknown tool` and the 424 branch could never run. The
+  registry now indexes every registered tool; the manifest still hides the
+  ones whose plugin is not installed or enabled. `tools.php` maps
+  `failed_dependency` to HTTP 424 (it used to fall through to 400).
+- **Licenses of the BigBlueButton and H5P add-ons are matched against the
+  product that is sold** — `moodle-bigbluebutton-ai-connect-pro` and
+  `moodle-hvp-ai-connect-pro`. The loader expected the free slugs, so a
+  valid license for the paid add-on never unlocked its tools.
+
+### Tests
+- `tests/capability_license_test.php`: 424 for a capability-missing tool,
+  manifest still hides it, unknown tools stay 404; every Pro add-on expects
+  its paid slug; per add-on a license for its own slug unlocks it and the
+  free slug, another add-on's slug, an expired license or no key do not.
+
 ## [2.2.5] — 2026-11-16
 
 ### Privacy

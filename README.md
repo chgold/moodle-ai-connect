@@ -10,7 +10,7 @@
 - **Type:** local plugin
 - **Compatibility:** Moodle **4.3+** (`$plugin->requires = 2023100900`). Tested on Moodle 4.4 (MariaDB).
 - **Maturity:** `MATURITY_STABLE`
-- **Release:** `2.2.5`
+- **Release:** `2.2.6`
 - **License:** GNU GPL v3 or later (see `LICENSE`)
 - **Edition:** free. All tools in this plugin are **read-only**.
 

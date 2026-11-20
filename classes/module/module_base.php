@@ -167,6 +167,19 @@ abstract class module_base {
     }
 
     /**
+     * Every registered tool, capability NOT checked.
+     *
+     * Dispatch index only (module_registry) — never the manifest. A tool whose
+     * capability is missing must still be routable so execute_tool() can answer
+     * 424 Failed Dependency (#803) instead of 404 "Unknown tool".
+     *
+     * @return array<string, array> All tools keyed by short name.
+     */
+    public function get_registered_tools(): array {
+        return $this->tools;
+    }
+
+    /**
      * Return the required_scope for a single registered tool.
      *
      * Used by the GET endpoint guard to reject write/admin tools

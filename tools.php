@@ -107,6 +107,7 @@ try {
         $status = match ($result['error']) {
             'tool_not_found'      => 404,
             'insufficient_scope'  => 403,
+            'failed_dependency'   => 424,
             'missing_param'       => 400,
             default               => 400,
         };
