@@ -50,7 +50,8 @@ final class manifest_test extends \advanced_testcase {
     }
 
     /**
-     * Under Pro edition, the manifest advertises 12 tools (6 free + 6 pro).
+     * Under Pro edition, the manifest advertises the core tools plus every installed Pro
+     * add-on's tools (the count grows with each add-on; it was 12 in 2026-07).
      */
     public function test_manifest_lists_twelve_tools(): void {
         $this->resetAfterTest();
@@ -58,7 +59,8 @@ final class manifest_test extends \advanced_testcase {
 
         $manifest = (new manifest_controller())->get();
 
-        $this->assertCount(12, $manifest['tools']);
+        $free = count((new \local_aiconnect\module\core_module())->get_tools('read write'));
+        $this->assertGreaterThan($free, count($manifest['tools']));
         $names = array_column($manifest['tools'], 'name');
         $this->assertContains('moodle.getCourses', $names);
         $this->assertContains('moodle.enrollUser', $names);

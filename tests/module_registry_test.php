@@ -74,7 +74,7 @@ final class module_registry_test extends \advanced_testcase {
     }
 
     /**
-     * With Pro edition, the registry lists core + pro = 12 tools.
+     * With Pro edition, the registry lists core + every installed Pro add-on (was 12 in 2026-07).
      */
     public function test_pro_edition_registry_lists_twelve_tools(): void {
         $this->resetAfterTest();
@@ -84,7 +84,8 @@ final class module_registry_test extends \advanced_testcase {
         $registry = new module_registry();
         $tools = $registry->get_all_tools('read write');
 
-        $this->assertCount(12, $tools);
+        $free = count((new \local_aiconnect\module\core_module())->get_tools('read write'));
+        $this->assertGreaterThan($free, count($tools));
         $names = array_column($tools, 'name');
         $this->assertContains('moodle.getCourses', $names);
         $this->assertContains('moodle.enrollUser', $names);

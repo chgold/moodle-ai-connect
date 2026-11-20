@@ -24,6 +24,9 @@ semantic versioning.
   manifest still hides it, unknown tools stay 404; every Pro add-on expects
   its paid slug; per add-on a license for its own slug unlocks it and the
   free slug, another add-on's slug, an expired license or no key do not.
+- Three older tests were out of date (they expected 12 tools and called
+  `enrollUser` as user 0); they now check the current tool set and run the
+  Pro tool as the admin. Whole suite: 39 tests pass.
 
 ## [2.2.5] — 2026-11-16
 

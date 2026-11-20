@@ -120,10 +120,13 @@ final class tools_test extends \advanced_testcase {
         $course = $gen->create_course();
         $target = $gen->create_user();
 
+        // Pro tools check the caller's native Moodle permissions (SEC-00): run as the admin.
+        $this->setAdminUser();
+        global $USER;
         $result = (new tools_controller())->execute('moodle.enrollUser',
-            ['userid' => $target->id, 'courseid' => $course->id], 0, 'read write');
+            ['userid' => $target->id, 'courseid' => $course->id], (int) $USER->id, 'read write');
 
-        $this->assertTrue($result['enrolled']);
+        $this->assertTrue($result['enrolled'] ?? false, json_encode($result));
         $this->assertTrue(is_enrolled(\context_course::instance($course->id), $target->id));
     }
 
