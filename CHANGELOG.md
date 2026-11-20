@@ -17,6 +17,10 @@ semantic versioning.
 - **Token exchange is bound to the authorization request.** `redirect_uri`
   must equal the one used at authorize (an out-of-band code may omit it) and
   a `client_id` that is sent must be the code's client.
+- **`code_challenge_method=S256` was refused.** The parameter was read as
+  letters only (`PARAM_ALPHA`), so `S256` became `S` and every client that
+  sent the method (as RFC 7636 asks) got "Only S256 … is supported". It is now
+  read with `PARAM_ALPHANUM`; omitting it still means S256.
 - The default clients are registered with `urn:ietf:wg:oauth:2.0:oob`, the
   address every current connection (goldnat and the AI clients) uses, so
   existing connections keep working.

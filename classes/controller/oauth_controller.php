@@ -107,7 +107,7 @@ class oauth_controller {
 
         $clientid    = required_param('client_id', PARAM_ALPHANUMEXT);
         $challenge   = required_param('code_challenge', PARAM_RAW_TRIMMED);
-        $method      = optional_param('code_challenge_method', 'S256', PARAM_ALPHA);
+        $method      = optional_param('code_challenge_method', 'S256', PARAM_ALPHANUM);
         $redirecturi = optional_param('redirect_uri', '', PARAM_URL);
         $scope       = optional_param('scope', 'read write', PARAM_RAW_TRIMMED);
         $state       = optional_param('state', '', PARAM_RAW_TRIMMED);
